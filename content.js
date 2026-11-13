@@ -1,0 +1,181 @@
+﻿// ============================================================
+// 1. ЗАПРАШИВАЕМ РАЗРЕШЕНИЕ НА УВЕДОМЛЕНИЯ
+// ============================================================
+if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+    Notification.requestPermission();
+}
+
+// ============================================================
+// 2. БЛОКИРУЕМ СОБЫТИЯ ПОТЕРИ ФОКУСА И ВИДИМОСТИ
+// ============================================================
+document.addEventListener('visibilitychange', (e) => e.stopImmediatePropagation(), true);
+document.addEventListener('webkitvisibilitychange', (e) => e.stopImmediatePropagation(), true);
+window.addEventListener('blur', (e) => e.stopImmediatePropagation(), true);
+window.addEventListener('focus', (e) => e.stopImmediatePropagation(), true);
+
+// ============================================================
+// 3. ПОДДЕЛЫВАЕМ СВОЙСТВА ДОКУМЕНТА — ВСЕГДА АКТИВНАЯ ВКЛАДКА
+// ============================================================
+Object.defineProperty(document, 'hidden', { get: () => false, configurable: true });
+Object.defineProperty(document, 'visibilityState', { get: () => 'visible', configurable: true });
+
+// ============================================================
+// 4. БЛОКИРУЕМ ПРОГРАММНУЮ ПАУЗУ (ЧЕРЕЗ ПРОТОТИП)
+// ============================================================
+const originalPause = HTMLMediaElement.prototype.pause;
+HTMLMediaElement.prototype.pause = function () {
+    if (window.location.hostname.includes('twitch.tv')) {
+        console.log('🚫 Twitch Keep Alive: программная пауза заблокирована');
+        return;
+    }
+    return originalPause.apply(this, arguments);
+};
+
+// ============================================================
+// 5. ЗАЩИТА ОТ ТАЙМЕРОВ
+// ============================================================
+const originalSetTimeout = window.setTimeout;
+const originalSetInterval = window.setInterval;
+
+window.setTimeout = function (handler, timeout, ...args) {
+    if (timeout > 1000) timeout = 1000;
+    return originalSetTimeout.call(this, handler, timeout, ...args);
+};
+
+window.setInterval = function (handler, interval, ...args) {
+    if (interval > 1000) interval = 1000;
+    return originalSetInterval.call(this, handler, interval, ...args);
+};
+
+// ============================================================
+// 6. БЛОКИРУЕМ МЕЖВКЛАДОЧНУЮ СИНХРОНИЗАЦИЮ
+// ============================================================
+const originalBroadcastChannel = window.BroadcastChannel;
+window.BroadcastChannel = function (name) {
+    if (name && name.includes('twitch')) {
+        console.log('🚫 Twitch Keep Alive: BroadcastChannel заблокирован');
+        return {
+            postMessage: () => { },
+            close: () => { },
+            addEventListener: () => { },
+            removeEventListener: () => { },
+        };
+    }
+    return new originalBroadcastChannel(name);
+};
+
+// ============================================================
+// 7. ПРИНУДИТЕЛЬНОЕ ВОССТАНОВЛЕНИЕ ВОСПРОИЗВЕДЕНИЯ
+// ============================================================
+function ensurePlaying() {
+    const videos = document.querySelectorAll('video');
+    videos.forEach(video => {
+        if (video.paused && !video.ended && window.location.hostname.includes('twitch.tv')) {
+            video.play().catch(() => { });
+            console.log('🔄 Twitch Keep Alive: видео перезапущено через play()');
+        }
+    });
+
+    const playButton = document.querySelector('[data-a-target="player-play-pause-button"][data-a-player-state="paused"]');
+    if (playButton) {
+        playButton.click();
+        console.log('🔄 Twitch Keep Alive: нажата кнопка воспроизведения');
+    }
+}
+setInterval(ensurePlaying, 2000);
+
+// ============================================================
+// 8. АВТОМАТИЧЕСКОЕ НАЖАТИЕ НА КНОПКИ "ПОЛУЧИТЬ" И "ПОЛУЧИТЬ БОНУС"
+// ============================================================
+function collectRewards() {
+    // Кнопка с текстом "Получить" (для дропов)
+    const label = document.querySelector('[data-a-target="tw-core-button-label-text"]');
+    if (label && label.textContent.trim() === 'Получить') {
+        const button = label.closest('button, a');
+        if (button && !button.disabled) {
+            button.click();
+            console.log('🎁 Twitch Keep Alive: нажата кнопка "Получить" (дропы)');
+        }
+    }
+
+    // Кнопка с aria-label="Получить бонус" (для бонусов канала)
+    const bonusButton = document.querySelector('button[aria-label="Получить бонус"]:not([disabled])');
+    if (bonusButton) {
+        bonusButton.click();
+        console.log('🎁 Twitch Keep Alive: нажата кнопка "Получить бонус" (бонусы канала)');
+    }
+}
+setInterval(collectRewards, 10000);
+
+// ============================================================
+// 9. ОТСЛЕЖИВАНИЕ ОКОНЧАНИЯ СТРИМА И СМЕНЫ ИГРЫ
+// ============================================================
+let wasOnline = false;
+let notifiedOffline = false;
+let lastGameTitle = ''; // храним предыдущее название игры
+
+function checkStreamStatus() {
+    // Не проверяем на страницах видео по запросу и клипов
+    if (window.location.pathname.includes('/videos/') || window.location.pathname.includes('/clip/')) {
+        return;
+    }
+
+    const offlineIndicator = document.querySelector('.channel-status-info--offline, .stream-title--offline, [data-test-selector="stream-status"]');
+    const videos = document.querySelectorAll('video');
+    const video = videos.length > 0 ? videos[0] : null;
+
+    const isOnline = video && !video.ended && !video.error && !offlineIndicator;
+    const gameLink = document.querySelector('[data-a-target="stream-game-link"]');
+    const currentGame = gameLink ? gameLink.textContent.trim() : '';
+
+    if (isOnline) {
+        // Стрим онлайн
+        wasOnline = true;
+        notifiedOffline = false;
+
+        // Проверяем изменение игры
+        if (currentGame && currentGame !== lastGameTitle) {
+            const channelName = window.location.pathname.split('/').filter(Boolean)[0] || 'Канал';
+            let message = '';
+            if (lastGameTitle) {
+                message = `${channelName} переключил игру с "${lastGameTitle}" на "${currentGame}"`;
+            } else {
+                message = `${channelName} начал играть в "${currentGame}"`;
+            }
+            if (Notification.permission === 'granted') {
+                new Notification('🔄 Смена игры', {
+                    body: message,
+                    icon: 'https://www.twitch.tv/favicon.ico',
+                    tag: 'twitch-game-change',
+                    requireInteraction: false
+                });
+                console.log(`📢 Twitch Keep Alive: смена игры: ${message}`);
+            }
+            lastGameTitle = currentGame;
+        }
+    } else {
+        // Стрим офлайн
+        if (wasOnline && !notifiedOffline) {
+            const channelName = window.location.pathname.split('/').filter(Boolean)[0] || 'Канал';
+            const gameForNotification = currentGame || lastGameTitle || 'стрим';
+            if (Notification.permission === 'granted') {
+                new Notification('🔴 Стрим завершён!', {
+                    body: `${channelName} закончил трансляцию (${gameForNotification}).`,
+                    icon: 'https://www.twitch.tv/favicon.ico',
+                    tag: 'twitch-stream-ended',
+                    requireInteraction: true
+                });
+                console.log('📢 Twitch Keep Alive: уведомление об окончании стрима отправлено');
+            }
+            notifiedOffline = true;
+            wasOnline = false;
+            // Сбрасываем lastGameTitle, чтобы при следующем стриме было уведомление о начале игры
+            lastGameTitle = '';
+        }
+    }
+}
+
+// Проверяем состояние каждые 30 секунд
+setInterval(checkStreamStatus, 30000);
+
+console.log('✅ Twitch Keep Alive: расширение успешно загружено и работает!');

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>fetch fallback fixture</title>
+<style>
+  body { background: #0e0e10; color: #efeff1; font: 14px/1.4 system-ui, "Segoe UI", Roboto, Arial, sans-serif; margin: 16px; }
+  .card { border-bottom: 1px solid #1f1f23; max-width: 720px; }
+  .head { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+  .head img { width: 40px; height: 53px; border-radius: 2px; }
+  .head p { margin: 0; }
+  .muted { color: #adadb8; font-size: 12px; }
+  .details { padding: 8px 0 14px; }
+</style>
+</head>
+<body>
+
+<ul role="tablist" style="display:flex; list-style:none; margin:0 0 16px; padding:0;">
+  <li role="presentation"><a href="/drops/inventory" role="tab" aria-selected="false" style="color:#efeff1;padding:8px 10px;display:block;">Инвентарь</a></li>
+  <li role="presentation"><a href="/drops/campaigns" role="tab" aria-selected="true" style="color:#bf94ff;padding:8px 10px;display:block;">Все кампании</a></li>
+</ul>
+
+<div id="list">
+  <div class="card" data-game="forhonor">
+    <div class="head accordion-header" role="heading" aria-level="3">
+      <button class="tw-interactable" aria-expanded="false" style="display:flex;align-items:center;gap:12px;flex:1;background:none;border:0;color:inherit;text-align:left;cursor:pointer;">
+        <img alt="For Honor" class="tw-image" src="https://static-cdn.jtvnw.net/ttv-boxart/490382-120x160.jpg">
+        <div style="flex:1">
+          <p class="core">For Honor</p>
+          <p class="muted">Ubisoft</p>
+        </div>
+        <span class="muted">чт, 22 окт., 19:00 - чт, 12 нояб., 19:59 GMT+3</span>
+      </button>
+    </div>
+    <div class="details">
+      <strong class="dz">FH EntireDirectory Oct26</strong>
+      <p class="muted">Посмотрите и получите</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  // кэша нет — как сразу после установки
+  localStorage.removeItem('tak_inventoryStats');
+  localStorage.removeItem('tak_favoriteGames');
+  localStorage.removeItem('tak_hideCompleted');
+
+  // подменяем fetch: страница инвентаря как бы отвечает готовой разметкой
+  const INVENTORY_HTML = [
+    '<html><body>',
+    '<div class="wrap">',
+    '  <div class="camp">',
+    '    <div class="inventory-campaign-info">',
+    '      <p><a href="/drops/campaigns?dropID=aaa">FH EntireDirectory Oct26</a></p>',
+    '      <img class="inventory-boxart tw-image" src="https://static-cdn.jtvnw.net/ttv-boxart/490382-285x380.jpg">',
+    '    </div>',
+    '    <div class="tower">',
+    '      <div class="row"><img class="inventory-drop-image" src="x"><div role="progressbar" aria-valuenow="100"></div></div>',
+    '      <div class="row"><img class="inventory-drop-image" src="x"><div role="progressbar" aria-valuenow="100"></div></div>',
+    '      <div class="row"><img class="inventory-drop-image" src="x"><div role="progressbar" aria-valuenow="40"></div></div>',
+    '    </div>',
+    '  </div>',
+    '</div>',
+    '</body></html>'
+  ].join('');
+
+  let fetchCalls = 0;
+  window.fetch = function (url) {
+    fetchCalls++;
+    if (String(url).indexOf('/drops/inventory') === -1) {
+      return Promise.resolve(new Response('', { status: 404 }));
+    }
+    return Promise.resolve(new Response(INVENTORY_HTML, {
+      status: 200,
+      headers: { 'Content-Type': 'text/html' }
+    }));
+  };
+
+  const s = document.createElement('script');
+  s.src = '../favorites.js';
+  s.onload = () => start();
+  document.body.appendChild(s);
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  async function start() {
+    const errs = [];
+    const ok = (cond, msg) => { if (!cond) errs.push(msg); };
+    const finish = () => {
+      const pre = document.createElement('pre');
+      pre.id = 'result';
+      pre.textContent = errs.length ? 'FAIL\n' + errs.join('\n') : 'PASS';
+      document.body.appendChild(pre);
+      document.title = errs.length ? 'FAIL' : 'PASS';
+    };
+
+    await sleep(600);
+
+    try {
+      const card = () => document.querySelector('[data-game="forhonor"]');
+      const pill = () => card().querySelector('.tak-done-pill');
+      const campPill = () => card().querySelector('.tak-camp-pill');
+
+      ok(fetchCalls > 0, 'страница не запросила инвентарь');
+
+      const saved = JSON.parse(localStorage.getItem('tak_inventoryStats') || 'null');
+      ok(!!saved && !!saved.games && !!saved.campaigns, 'статистика из инвентаря не разобралась и не сохранилась');
+      ok(saved && saved.games['490382'] && saved.games['490382'].total === 3 && saved.games['490382'].earned === 2,
+        'For Honor: ждали 2/3, а там ' + JSON.stringify(saved && saved.games['490382']));
+      ok(saved && saved.games['490382'].allDone === false, 'For Honor не должна быть полностью собранной');
+      ok(saved && saved.campaigns['fh entiredirectory oct26'] && saved.campaigns['fh entiredirectory oct26'].earned === 2,
+        'кампания не попала в статистику');
+
+      ok(pill() && pill().textContent === '2/3', 'у игры не появился счётчик: ' + (pill() && pill().textContent));
+      ok(campPill() && campPill().textContent === '2/3', 'у кампании не появился счётчик: ' + (campPill() && campPill().textContent));
+
+    } catch (e) {
+      errs.push('Исключение: ' + (e && e.stack ? e.stack.split('\n')[0] : e));
+    }
+
+    finish();
+  }
+</script>
+</body>
+</html>

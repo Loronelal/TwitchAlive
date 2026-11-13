@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>inventory fixture</title>
+<style>
+  body { background: #0e0e10; color: #efeff1; font: 14px/1.4 system-ui, "Segoe UI", Roboto, Arial, sans-serif; margin: 16px; }
+  .inventory-campaign-info { max-width: 760px; }
+  .tw-link { color: #bf94ff; }
+  .khtvTe, .kBZhWz { border-top: 1px solid #222; padding: 4px 0; }
+  .tw-progress-bar { height: 4px; background: #2f2f35; }
+  .ScProgressBarFill { height: 4px; background: #9147ff; }
+  .inventory-opacity-2 { opacity: .35; }
+</style>
+</head>
+<body>
+
+<ul role="tablist" style="display:flex; list-style:none; margin:0 0 16px; padding:0;">
+  <li role="presentation"><a href="/drops/inventory" role="tab" aria-selected="true" style="color:#efeff1;padding:8px 10px;display:block;">Инвентарь</a></li>
+  <li role="presentation"><a href="/drops/campaigns" role="tab" aria-selected="false" style="color:#efeff1;padding:8px 10px;display:block;">Все кампании</a></li>
+  <li role="presentation"><a href="/drops/social-badge" role="tab" aria-selected="false" style="color:#efeff1;padding:8px 10px;display:block;">Значок за посты в соцсетях</a></li>
+</ul>
+
+<div id="inv"></div>
+
+<script>
+  // ---------- кампания в процессе ----------
+  function rewardRow(value, hasBar, actionText, dead, name) {
+    return '<div class="Layout khtvTe">' +
+             '<div class="Layout dmulkQ">' +
+               '<div class="Layout jjypJF">' +
+                 '<img alt="Изображение значка награды" class="inventory-drop-image' + (dead ? ' inventory-opacity-2' : '') + ' tw-image" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">' +
+                 (dead ? '<div class="Layout zTRpx"><p class="CoreText eCaCOy">Эта награда больше недоступна.</p></div>' : '') +
+               '</div>' +
+               '<div class="Layout gktonD"><div class="Layout hJrVXA">' +
+                 '<p class="CoreText-sc-1txzju1-0 gUQtFU">' + name + '</p>' +
+               '</div></div>' +
+             '</div>' +
+             (actionText ? '<div class="Layout funcUO"><a class="ScCoreButton">' +
+               '<div data-a-target="tw-core-button-label-text" class="zdujK">' + actionText + '</div></a></div>' : '') +
+             (hasBar ? '<div class="Layout gVwZXK">' +
+               '<div class="ScProgressBarWrapper tw-progress-bar" role="progressbar" aria-valuenow="' + value + '" aria-valuemin="0" aria-valuemax="100">' +
+                 '<div class="ScProgressBarFill" style="width:' + value + '%"></div>' +
+               '</div>' +
+               '<div class="Layout jgwcxZ"><p class="CoreText hrFpku">' +
+                 '<span class="CoreText fJYwSz">' + value + '</span>% от 4 часа</p></div>' +
+             '</div>' : '') +
+           '</div>';
+  }
+
+  function campaign(id, name, bars, opts) {
+    opts = opts || {};
+    const actions = opts.actions || [];
+    const dead = opts.dead || [];
+    const gameId = opts.gameId || ('9' + id);
+
+    const rows = bars.map(function (v, i) {
+      return rewardRow(v, true, actions[i] || '', dead.indexOf(i) !== -1, id.toUpperCase() + (i + 1));
+    }).join('');
+
+    const extra = [];
+    for (let i = 0; i < (opts.noBarRewards || 0); i++) {
+      extra.push(rewardRow(0, false, '', false, id.toUpperCase() + (bars.length + i + 1)));
+    }
+
+    return '<div class="Layout hStHhY" data-id="' + id + '">' +
+      '<div class="Layout hWNSKS inventory-campaign-info">' +
+        '<div class="Layout"><p class="CoreText jOVLCv">' +
+          '<a class="ScCoreLink tw-link" href="/drops/campaigns?dropID=' + id + '">' + name + '</a>' +
+        '</p></div>' +
+        '<div class="Layout dVDcVg"><p class="CoreText fJYwSz">' +
+          '<span class="CoreText DNQBh"> Дата окончания: </span> ' +
+          '<span class="CoreText dmGDNu">вс, 15 нояб., 14:59 GMT+3</span></p></div>' +
+        '<div class="Layout byJjYs">' +
+          '<div class="Layout bgpHZG">' +
+            '<img class="inventory-boxart tw-image" alt="Изображение кампании Drops" ' +
+              'src="https://static-cdn.jtvnw.net/ttv-boxart/' + gameId + '_IGDB-285x380.jpg">' +
+          '</div>' +
+          '<a class="ScCoreButton"><div data-a-target="tw-core-button-label-text" class="zdujK">Описание этого Drop</div></a>' +
+        '</div>' +
+      '</div>' +
+      '<div class="Layout kNQtqm"><div class="ScTower gBmiMA tw-tower">' + rows + extra.join('') + '</div></div>' +
+    '</div>';
+  }
+
+  // ---------- блок «Получено» ----------
+  function claimedCard(name, qty, time) {
+    return '<div class="Layout kBZhWz"><div class="Layout hbROwx"><div class="Layout dmulkQ">' +
+             '<div class="Layout jjypJF">' +
+               '<img alt="Изображение Drop для ' + name + '" class="inventory-drop-image tw-image" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">' +
+             '</div>' +
+             '<div class="Layout gktonD">' +
+               '<div class="Layout dmulkQ"><p class="CoreText dmGDNu">' + time + '</p>' +
+                 '<div class="InjectLayout bohlnR"><div class="Layout kpMgOK">' + qty + '</div></div></div>' +
+               '<div class="Layout"><p class="CoreText-sc-1txzju1-0 gUQtFU">' + name + '</p></div>' +
+             '</div>' +
+           '</div></div></div>';
+  }
+
+  document.getElementById('inv').innerHTML = [
+    campaign('a', 'Osaka 2026 Play-ins', [100, 100, 85, 56, 42], { gameId: '1001' }),
+    campaign('b', 'Ocean Expansion Drops', [46, 93, 100], { actions: ['', '', 'Подключить'], gameId: '1002' }),
+    campaign('c', 'Borderlands 4 x The Hunt', [100], { gameId: '1003' }),
+    campaign('d', 'Claim me', [100], { actions: ['Получить'], gameId: '1004' }),
+    campaign('e', 'Without progress bars', [], { noBarRewards: 2, gameId: '1005' }),
+    campaign('f', 'Half watched', [50], { gameId: '1006' }),
+    campaign('g', 'Osaka 2026 Play-ins (expired tiers)', [100, 100, 85, 56, 42], { dead: [2, 3, 4], gameId: '1007' }),
+    campaign('h', 'Fully expired', [85, 42], { dead: [0, 1], gameId: '1008' }),
+    '<div class="Layout gLwScq"><div class="Layout dmulkQ"><h5 class="CoreText cwkUIP">Получено</h5></div></div>',
+    '<div class="ScTower gJZidx tw-tower">' +
+      claimedCard('A1', 1, '3 часа назад') +
+      claimedCard('A2', 1, '3 часа назад') +
+      claimedCard('C1', 1, '4 часа назад') +
+      claimedCard('D1', 1, '5 часов назад') +
+      claimedCard('E1', 1, '6 часов назад') +
+      claimedCard('E2', 1, '6 часов назад') +
+      claimedCard('G1', 1, '7 часов назад') +
+      claimedCard('G2', 2, '7 часов назад') +
+    '</div>'
+  ].join('');
+
+  localStorage.removeItem('tak_favoriteGames');
+  localStorage.removeItem('tak_onlyFavorites');
+  localStorage.removeItem('tak_hideCompleted');
+  localStorage.removeItem('tak_inventoryStats');
+
+  const fixtureHtml = document.getElementById('inv').innerHTML;
+
+  const s = document.createElement('script');
+  s.src = '../favorites.js';
+  s.onload = () => start();
+  document.body.appendChild(s);
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  async function start() {
+    const errs = [];
+    const ok = (cond, msg) => { if (!cond) errs.push(msg); };
+    const finish = () => {
+      const pre = document.createElement('pre');
+      pre.id = 'result';
+      pre.textContent = errs.length ? 'FAIL\n' + errs.join('\n') : 'PASS';
+      document.body.appendChild(pre);
+      document.title = errs.length ? 'FAIL' : 'PASS';
+    };
+
+    await sleep(350);
+
+    try {
+      const card = (id) => document.querySelector('[data-id="' + id + '"]');
+      const badge = (id) => card(id).querySelector('.tak-done-badge');
+      const badgeText = (id) => (badge(id) ? badge(id).textContent : '—');
+      const visible = (el) => !!el && getComputedStyle(el).display !== 'none';
+      const count = () => document.querySelector('.tak-done-count').textContent;
+
+      // ---------- 1. отметки ----------
+      ok(badgeText('a') === '85%', 'Osaka: ждали 85%, а там ' + badgeText('a'));
+      ok(badgeText('b') === '93%', 'Ocean: ждали 93%, а там ' + badgeText('b'));
+      ok(badgeText('c') === '✓ Получено', 'Borderlands: ждали «Получено», а там ' + badgeText('c'));
+      ok(badgeText('d') === 'Забрать', 'Claim me: ждали «Забрать», а там ' + badgeText('d'));
+      ok(badgeText('e') === '✓ Получено', 'кампания без полосок должна считаться полученной');
+      ok(badgeText('f') === '50%', 'Half watched: ждали 50%, а там ' + badgeText('f'));
+      ok(badgeText('g') === '✓ Получено', 'кампания с истёкшими наградами должна быть «Получено», а там ' + badgeText('g'));
+      ok(badgeText('h') === 'Недоступно', 'полностью истёкшая кампания должна быть «Недоступно», а там ' + badgeText('h'));
+
+      // ---------- 1b. «Получено» и статистика ----------
+      const saved = JSON.parse(localStorage.getItem('tak_inventoryStats') || 'null');
+      ok(!!saved && !!saved.games, 'статистика по играм не сохранилась');
+      ok(!!saved && !!saved.claimed && saved.claimed.a1 === 1 && saved.claimed.g2 === 2,
+        'список «Получено» не разобрался: ' + JSON.stringify(saved && saved.claimed));
+
+      const g = (id) => (saved && saved.games ? saved.games[id + '_IGDB'] : null);
+      ok(g('1001') && g('1001').total === 5 && g('1001').earned === 2, 'Osaka: ждали 2/5, а там ' + JSON.stringify(g('1001')));
+      ok(g('1003') && g('1003').allDone === true && g('1003').earned === 1, 'Borderlands: ждали 1/1 allDone');
+      ok(g('1005') && g('1005').earned === 2, 'кампания без полосок: обе награды должны считаться собранными');
+      ok(g('1008') && g('1008').earned === 0, 'полностью истёкшая: собрано 0');
+
+      ok(document.querySelector('.tak-done-main'), 'вкладка «Готово» не появилась');
+      ok(count() === '4', 'готовых должно быть 4, а ' + count());
+
+      // ---------- 2. прячем полученные ----------
+      document.querySelector('.tak-done-main').click();
+      await sleep(150);
+      ok(!visible(card('c')), 'Borderlands должна скрыться');
+      ok(!visible(card('e')), 'кампания без полосок должна скрыться');
+      ok(!visible(card('g')), 'кампания с истёкшими наградами должна скрыться');
+      ok(!visible(card('h')), 'полностью истёкшая должна скрыться');
+      ok(visible(card('a')) && visible(card('b')) && visible(card('d')) && visible(card('f')), 'незавершённые должны остаться');
+      ok(localStorage.getItem('tak_hideCompleted') === 'true', 'флаг скрытия не сохранился');
+
+      // ---------- 3. прогресс доезжает до 100% без перерисовки ----------
+      card('b').querySelectorAll('[role="progressbar"]').forEach((el) => el.setAttribute('aria-valuenow', '100'));
+      await sleep(250);
+      ok(badgeText('b') === 'Забрать', 'после 100% с «Подключить» ждали «Забрать», а там ' + badgeText('b'));
+      ok(visible(card('b')), 'кампания с незабранной наградой не должна скрываться');
+
+      card('f').querySelector('[role="progressbar"]').setAttribute('aria-valuenow', '100');
+      await sleep(250);
+      ok(badgeText('f') === '✓ Получено', 'после 100% ждали «Получено», а там ' + badgeText('f'));
+      ok(count() === '5', 'готовых должно стать 5, а ' + count());
+      ok(!visible(card('f')), 'доехавшая до 100% кампания должна скрыться под фильтром');
+
+      // ---------- 4. снова показываем всё ----------
+      document.querySelector('.tak-done-main').click();
+      await sleep(150);
+      ok(visible(card('c')) && visible(card('e')) && visible(card('g')) && visible(card('f')), 'после выключения фильтра всё должно быть видно');
+
+      // ---------- 5. перерисовка страницы ----------
+      document.getElementById('inv').innerHTML = fixtureHtml;
+      await sleep(400);
+      ok(document.querySelectorAll('.tak-done-badge').length === 8, 'после перерисовки отметки не восстановились');
+      ok(badgeText('g') === '✓ Получено', 'после перерисовки кампания с истёкшими наградами потеряла отметку');
+      ok(count() === '4', 'после перерисовки счётчик сбился: ' + count());
+
+    } catch (e) {
+      errs.push('Исключение: ' + (e && e.stack ? e.stack.split('\n')[0] : e));
+    }
+
+    finish();
+  }
+</script>
+</body>
+</html>

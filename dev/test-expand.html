@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>expand fixture</title>
+<style>
+  body { background: #0e0e10; color: #efeff1; font: 14px/1.4 system-ui, "Segoe UI", Roboto, Arial, sans-serif; margin: 16px; }
+  .khtvTe { border-top: 1px solid #222; padding: 4px 0; }
+  .tw-progress-bar { height: 4px; background: #2f2f35; }
+</style>
+</head>
+<body>
+
+<ul role="tablist" style="display:flex; list-style:none; margin:0 0 16px; padding:0;">
+  <li role="presentation"><a href="/drops/inventory" role="tab" aria-selected="true" style="color:#efeff1;padding:8px 10px;display:block;">Инвентарь</a></li>
+  <li role="presentation"><a href="/drops/campaigns" role="tab" aria-selected="false" style="color:#effff1;padding:8px 10px;display:block;">Все кампании</a></li>
+</ul>
+
+<div id="inv"></div>
+<div id="more"><button class="ScCoreButton"><div data-a-target="tw-core-button-label-text">Загрузить еще</div></button></div>
+
+<script>
+  // имитация пагинации: каждое нажатие добавляет ещё две кампании
+  const PAGES = [
+    [['p1a', 'Page 1 A', '4001', [[100, 'P1A1'], [50, 'P1A2']]], ['p1b', 'Page 1 B', '4002', [[100, 'P1B1']]]],
+    [['p2a', 'Page 2 A', '4003', [[0, 'P2A1'], [0, 'P2A2']]], ['p2b', 'Page 2 B', '4004', [[100, 'P2B1'], [100, 'P2B2']]]],
+    [['p3a', 'Page 3 A', '4005', [[10, 'P3A1']]]]
+  ];
+
+  let page = 0;
+
+  function reward(value, name) {
+    return '<div class="Layout khtvTe">' +
+      '<img alt="x" class="inventory-drop-image tw-image" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">' +
+      '<p class="CoreText gUQtFU">' + name + '</p>' +
+      '<div class="tw-progress-bar" role="progressbar" aria-valuenow="' + value + '"></div>' +
+    '</div>';
+  }
+
+  function campaign(id, name, gameId, rewards) {
+    return '<div class="Layout hStHhY" data-id="' + id + '">' +
+      '<div class="Layout inventory-campaign-info">' +
+        '<p class="CoreText jOVLCv"><a class="tw-link" href="/drops/campaigns?dropID=' + id + '">' + name + '</a></p>' +
+        '<img class="inventory-boxart tw-image" alt="x" src="https://static-cdn.jtvnw.net/ttv-boxart/' + gameId + '_IGDB-285x380.jpg">' +
+      '</div>' +
+      '<div class="Layout kNQtqm"><div class="ScTower tw-tower">' + rewards.map(function (r) {
+        return reward(r[0], r[1]);
+      }).join('') + '</div></div>' +
+    '</div>';
+  }
+
+  function renderPage() {
+    const html = PAGES[page].map(function (c) { return campaign(c[0], c[1], c[2], c[3]); }).join('');
+    document.getElementById('inv').insertAdjacentHTML('beforeend', html);
+  }
+
+  renderPage();
+  page++;
+
+  document.querySelector('#more button').addEventListener('click', function () {
+    if (page >= PAGES.length) { document.getElementById('more').remove(); return; }
+    renderPage();
+    page++;
+    if (page >= PAGES.length) document.getElementById('more').remove();
+  });
+
+  localStorage.removeItem('tak_inventoryStats');
+  localStorage.removeItem('tak_favoriteGames');
+  localStorage.removeItem('tak_hideCompleted');
+
+  const s = document.createElement('script');
+  s.src = '../favorites.js';
+  s.onload = () => start();
+  document.body.appendChild(s);
+
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  async function start() {
+    const errs = [];
+    const ok = (cond, msg) => { if (!cond) errs.push(msg); };
+    const finish = () => {
+      const pre = document.createElement('pre');
+      pre.id = 'result';
+      pre.textContent = errs.length ? 'FAIL\n' + errs.join('\n') : 'PASS';
+      document.body.appendChild(pre);
+      document.title = errs.length ? 'FAIL' : 'PASS';
+    };
+
+    await wait(1500);
+    await wait(2500);
+
+    try {
+      const data = JSON.parse(localStorage.getItem('tak_inventoryStats') || 'null');
+      const campaigns = data && data.campaigns ? Object.keys(data.campaigns).length : 0;
+
+      ok(campaigns >= 5, 'после догрузки ждали 5 кампаний, а в кэше ' + campaigns +
+        ' (' + JSON.stringify(data && Object.keys(data.campaigns || {})) + ')');
+      ok(campaigns === 5, 'в кэше должны быть все 5 кампаний со всех страниц, а там ' + campaigns);
+      ok(!document.querySelector('#more button'), 'кнопка «Загрузить еще» должна исчезнуть после последней страницы');
+      ok(data && data.games && data.games['4005_IGDB'], 'игра с последней страницы не попала в сводку');
+
+    } catch (e) {
+      errs.push('Исключение: ' + (e && e.stack ? e.stack.split('\n')[0] : e));
+    }
+
+    finish();
+  }
+</script>
+</body>
+</html>

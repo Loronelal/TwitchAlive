@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>preview</title>
+<style>
+  body { margin: 0; padding: 24px; background: #0e0e10; color: #efeff1;
+         font: 14px/1.4 system-ui, "Segoe UI", Roboto, Arial, sans-serif; }
+  .row { max-width: 820px; }
+  .card { border-bottom: 1px solid #1f1f23; }
+  /* ключевое отличие от реальной страницы: блок с названием тянется,
+     даты прижаты вправо — как в разметке Twitch */
+  .accordion-header { display: flex; align-items: center; gap: 12px;
+                      padding: 8px 0; min-width: 0; }
+  .imgwrap { flex: 0 0 auto; }
+  .imgwrap img { display: block; width: 40px; height: 53px; border-radius: 2px; }
+  .textwrap { flex: 1 1 auto; min-width: 0; }
+  .names { display: flex; flex-direction: column; min-width: 0; }
+  .name { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .muted { margin: 0; color: #adadb8; font-size: 12px; }
+  .dates { flex: 0 0 auto; color: #adadb8; font-size: 12px; }
+  .chev { flex: 0 0 auto; color: #adadb8; }
+</style>
+</head>
+<body>
+<!-- только для визуальной проверки вёрстки: тёмный фон + полоса вкладок как на Twitch -->
+<ul role="tablist" class="fake-tabs" style="display:flex; list-style:none; margin:0 0 18px; padding:0; max-width:820px;">
+  <li role="presentation"><a href="/drops/inventory" style="display:block; padding:10px 12px; color:#efeff1; text-decoration:none;">Инвентарь</a></li>
+  <li role="presentation"><a href="/drops/campaigns" style="display:block; padding:10px 12px; color:#bf94ff; text-decoration:none;">Все кампании</a></li>
+  <li role="presentation"><a href="/drops/social-badge" style="display:block; padding:10px 12px; color:#efeff1; text-decoration:none;">Значок за посты в соцсетях</a></li>
+</ul>
+
+<div class="row">
+
+  <div class="card" data-game="a">
+    <div class="accordion-header" role="heading">
+      <div class="imgwrap">
+        <img alt="League of Legends" class="tw-image" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='53'><rect width='40' height='53' fill='%23314'/><text x='20' y='30' font-size='10' fill='%23a970ff' text-anchor='middle'>LoL</text></svg>">
+      </div>
+      <div class="textwrap">
+        <div class="names">
+          <p class="name">League of Legends</p>
+          <p class="muted">Twitch Gaming</p>
+        </div>
+      </div>
+      <div class="dates">ср, 14 окт., 22:00 - пт, 13 нояб., 18:59 GMT+3</div>
+      <div class="chev">›</div>
+    </div>
+  </div>
+
+  <div class="card" data-game="b">
+    <div class="accordion-header" role="heading">
+      <div class="imgwrap">
+        <img alt="Apex Legends" class="tw-image" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='53'><rect width='40' height='53' fill='%23421'/><text x='20' y='30' font-size='10' fill='%23ffd166' text-anchor='middle'>APEX</text></svg>">
+      </div>
+      <div class="textwrap">
+        <div class="names">
+          <p class="name">Apex Legends</p>
+          <p class="muted">Electronic Arts</p>
+        </div>
+      </div>
+      <div class="dates">вт, 10 нояб., 21:00 - вт, 1 дек., 20:59 GMT+3</div>
+      <div class="chev">›</div>
+    </div>
+  </div>
+
+  <div class="card" data-game="c">
+    <div class="accordion-header" role="heading">
+      <div class="imgwrap">
+        <img alt="Once Human" class="tw-image" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='53'><rect width='40' height='53' fill='%23134'/><text x='20' y='30' font-size='9' fill='%23bf94ff' text-anchor='middle'>ONCE</text></svg>">
+      </div>
+      <div class="textwrap">
+        <div class="names">
+          <p class="name">Once Human</p>
+          <p class="muted">Starry</p>
+        </div>
+      </div>
+      <div class="dates">чт, 22 окт., 05:00 - вс, 15 нояб., 14:59 GMT+3</div>
+      <div class="chev">›</div>
+    </div>
+  </div>
+
+</div>
+
+<script src="../favorites.js"></script>
+<script>
+  // пара игр в избранном + открытый список
+  window.addEventListener('load', () => {
+    const api = window.__twitchAliveFav;
+    setTimeout(() => {
+      api.toggleFavorite('League of Legends');
+      api.toggleFavorite('Once Human');
+      // для скриншота показываем панель напрямую: в headless resize после
+      // загрузки закрывает её штатным обработчиком
+      const panel = document.querySelector('.tak-fav-panel');
+      panel.style.display = 'flex';
+      panel.style.left = '430px';
+      panel.style.top = '64px';
+    }, 300);
+  });
+</script>
+</body>
+</html>

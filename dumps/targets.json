@@ -1,0 +1,35 @@
+﻿[ {
+   "description": "",
+   "devtoolsFrontendUrl": "https://chrome-devtools-frontend.appspot.com/serve_rev/@653674df293788cf4932c40d914e9e15b41a2d31/inspector.html?ws=127.0.0.1:9222/devtools/page/3F8E2A506BFF4C891450EAF40D2FE3A4",
+   "faviconUrl": "https://assets.twitch.tv/assets/favicon-32-5c61aa63605bca4f740d.png",
+   "id": "3F8E2A506BFF4C891450EAF40D2FE3A4",
+   "title": "Twitch",
+   "type": "page",
+   "url": "https://www.twitch.tv/drops/campaigns",
+   "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/3F8E2A506BFF4C891450EAF40D2FE3A4"
+}, {
+   "description": "",
+   "devtoolsFrontendUrl": "https://chrome-devtools-frontend.appspot.com/serve_rev/@653674df293788cf4932c40d914e9e15b41a2d31/inspector.html?ws=127.0.0.1:9222/devtools/page/8B8DFDAA0A83BD619306E31E2B521702",
+   "id": "8B8DFDAA0A83BD619306E31E2B521702",
+   "title": "Omnibox Popup",
+   "type": "browser_ui",
+   "url": "chrome://omnibox-popup.top-chrome/",
+   "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/8B8DFDAA0A83BD619306E31E2B521702"
+}, {
+   "description": "",
+   "devtoolsFrontendUrl": "https://chrome-devtools-frontend.appspot.com/serve_rev/@653674df293788cf4932c40d914e9e15b41a2d31/inspector.html?ws=127.0.0.1:9222/devtools/page/874CA6F35CDA0F8DF4DF4D0B0030D783",
+   "id": "874CA6F35CDA0F8DF4DF4D0B0030D783",
+   "title": "Omnibox Popup",
+   "type": "browser_ui",
+   "url": "chrome://omnibox-popup.top-chrome/omnibox_popup_aim.html",
+   "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/874CA6F35CDA0F8DF4DF4D0B0030D783"
+}, {
+   "description": "",
+   "devtoolsFrontendUrl": "https://chrome-devtools-frontend.appspot.com/serve_rev/@653674df293788cf4932c40d914e9e15b41a2d31/inspector.html?ws=127.0.0.1:9222/devtools/page/D579200C44003DFAC83215EA4A2AC537",
+   "id": "D579200C44003DFAC83215EA4A2AC537",
+   "title": "",
+   "type": "worker",
+   "url": "",
+   "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/D579200C44003DFAC83215EA4A2AC537"
+} ]
+

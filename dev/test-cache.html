@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>cache fixture</title>
+<style>
+  body { background: #0e0e10; color: #efeff1; font: 14px/1.4 system-ui, "Segoe UI", Roboto, Arial, sans-serif; margin: 16px; }
+  .khtvTe { border-top: 1px solid #222; padding: 4px 0; }
+  .tw-progress-bar { height: 4px; background: #2f2f35; }
+  .ScProgressBarFill { height: 4px; background: #9147ff; }
+</style>
+</head>
+<body>
+
+<ul role="tablist" style="display:flex; list-style:none; margin:0 0 16px; padding:0;">
+  <li role="presentation"><a href="/drops/inventory" role="tab" aria-selected="true" style="color:#efeff1;padding:8px 10px;display:block;">Инвентарь</a></li>
+  <li role="presentation"><a href="/drops/campaigns" role="tab" aria-selected="false" style="color:#efeff1;padding:8px 10px;display:block;">Все кампании</a></li>
+</ul>
+
+<div id="inv"></div>
+
+<script>
+  function reward(value, name) {
+    return '<div class="Layout khtvTe">' +
+             '<div class="Layout dmulkQ"><div class="Layout jjypJF">' +
+               '<img alt="x" class="inventory-drop-image tw-image" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">' +
+             '</div><div class="Layout gktonD"><div class="Layout hJrVXA">' +
+               '<p class="CoreText gUQtFU">' + name + '</p>' +
+             '</div></div></div>' +
+             '<div class="Layout gVwZXK">' +
+               '<div class="tw-progress-bar" role="progressbar" aria-valuenow="' + value + '"></div>' +
+             '</div>' +
+           '</div>';
+  }
+
+  function campaign(id, name, gameId, rewards) {
+    return '<div class="Layout hStHhY" data-id="' + id + '">' +
+      '<div class="Layout inventory-campaign-info">' +
+        '<p class="CoreText jOVLCv"><a class="tw-link" href="/drops/campaigns?dropID=' + id + '">' + name + '</a></p>' +
+        '<img class="inventory-boxart tw-image" alt="x" src="https://static-cdn.jtvnw.net/ttv-boxart/' + gameId + '_IGDB-285x380.jpg">' +
+      '</div>' +
+      '<div class="Layout kNQtqm"><div class="ScTower tw-tower">' + rewards.map(function (r) {
+        return reward(r[0], r[1]);
+      }).join('') + '</div></div>' +
+    '</div>';
+  }
+
+  document.getElementById('inv').innerHTML = [
+    campaign('c1', 'Cache One', '3001', [[100, 'C11'], [100, 'C12'], [0, 'C13']]),
+    campaign('c2', 'Cache Two', '3002', [[100, 'C21'], [100, 'C22']])
+  ].join('');
+
+  localStorage.removeItem('tak_inventoryStats');
+  localStorage.removeItem('tak_favoriteGames');
+  localStorage.removeItem('tak_hideCompleted');
+
+  const s = document.createElement('script');
+  s.src = '../favorites.js';
+  s.onload = () => start();
+  document.body.appendChild(s);
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const stats = () => JSON.parse(localStorage.getItem('tak_inventoryStats') || 'null');
+
+  async function start() {
+    const errs = [];
+    const ok = (cond, msg) => { if (!cond) errs.push(msg); };
+    const finish = () => {
+      const pre = document.createElement('pre');
+      pre.id = 'result';
+      pre.textContent = errs.length ? 'FAIL\n' + errs.join('\n') : 'PASS';
+      document.body.appendChild(pre);
+      document.title = errs.length ? 'FAIL' : 'PASS';
+    };
+
+    await sleep(400);
+
+    try {
+      let data = stats();
+      ok(!!data && !!data.campaigns, 'кэш кампаний не создался');
+      ok(data && data.campaigns['cache one'] && data.campaigns['cache one'].total === 3,
+        'Cache One: ждали 3 награды, а там ' + JSON.stringify(data && data.campaigns['cache one']));
+      ok(data && data.campaigns['cache two'] && data.campaigns['cache two'].earned === 2,
+        'Cache Two: ждали 2/2, а там ' + JSON.stringify(data && data.campaigns['cache two']));
+
+      // ---------- пагинация: карточка ушла из DOM, кэш должен остаться ----------
+      document.querySelector('[data-id="c1"]').remove();
+      await sleep(300);
+
+      data = stats();
+      ok(data && data.campaigns['cache one'],
+        'после ухода карточки из DOM кампания выпала из кэша');
+      ok(data && data.games && data.games['3001_IGDB'],
+        'игра 3001 пропала из сводки после пагинации');
+
+      // ---------- кампания сменила набор наград ----------
+      const tower = document.querySelector('[data-id="c2"] .tw-tower');
+      tower.innerHTML = reward(100, 'C2X') + reward(50, 'C2Y') + reward(0, 'C2Z');
+      await sleep(400);
+
+      data = stats();
+      const updated = data && data.campaigns['cache two'];
+      ok(updated && updated.total === 3, 'после смены наград ждали total 3, а там ' + JSON.stringify(updated));
+      ok(updated && updated.earned === 1, 'после смены наград ждали earned 1, а там ' + JSON.stringify(updated));
+
+      // ---------- «Получено» докидывается между визитами ----------
+      document.getElementById('inv').insertAdjacentHTML('beforeend',
+        '<div class="ScTower tw-tower">' +
+          '<div class="Layout kBZhWz"><img class="inventory-drop-image tw-image" alt="x" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">' +
+            '<p class="CoreText dmGDNu">3 часа назад</p><p class="CoreText gUQtFU">C2X</p></div>' +
+        '</div>');
+      await sleep(400);
+
+      data = stats();
+      ok(data && data.claimed && data.claimed.c2x === 1,
+        'список «Получено» не попал в кэш: ' + JSON.stringify(data && data.claimed));
+
+    } catch (e) {
+      errs.push('Исключение: ' + (e && e.stack ? e.stack.split('\n')[0] : e));
+    }
+
+    finish();
+  }
+</script>
+</body>
+</html>

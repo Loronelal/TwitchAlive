@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>preview campaigns</title>
+<style>
+  body { margin: 0; padding: 20px 24px; background: #0e0e10; color: #efeff1;
+         font: 14px/1.4 system-ui, "Segoe UI", Roboto, Arial, sans-serif; }
+  .tabs { display: flex; list-style: none; margin: 0 0 18px; padding: 0; gap: 4px; }
+  .tabs a { display: block; padding: 10px 12px; color: #efeff1; text-decoration: none; font-weight: 600; }
+  .tabs a.active { color: #bf94ff; }
+  .card { max-width: 760px; border-bottom: 1px solid #1f1f23; }
+  .head { display: flex; align-items: center; gap: 12px; padding: 10px 0; }
+  .head img { width: 40px; height: 53px; border-radius: 2px; display: block; background: #26262c; }
+  .name { margin: 0; font-weight: 700; }
+  .muted { margin: 0; color: #adadb8; font-size: 12px; }
+  .dates { margin-left: auto; color: #adadb8; font-size: 12px; }
+  .details { padding: 4px 0 16px 52px; }
+  .camp-title { font-weight: 700; display: block; margin-bottom: 2px; }
+  .rewards { display: flex; gap: 10px; margin: 10px 0; }
+  .reward { width: 96px; text-align: center; font-size: 11px; color: #d4d4d8; }
+  .reward .pic { height: 74px; border-radius: 3px; background: #26262c; margin-bottom: 6px; }
+  .label { color: #adadb8; font-size: 12px; margin: 10px 0 4px; }
+</style>
+</head>
+<body>
+
+<ul class="tabs" role="tablist">
+  <li role="presentation"><a href="#" role="tab" aria-selected="false">Инвентарь</a></li>
+  <li role="presentation"><a href="#" class="active" role="tab" aria-selected="true">Все кампании</a></li>
+  <li role="presentation"><a href="#" role="tab" aria-selected="false">Значок за посты в соцсетях</a></li>
+</ul>
+
+<div id="list">
+
+  <div class="card">
+    <div class="head accordion-header" role="heading" aria-level="3">
+      <button aria-expanded="true" style="display:flex;align-items:center;gap:12px;flex:1;background:none;border:0;color:inherit;text-align:left;cursor:pointer;">
+        <img alt="For Honor" class="tw-image" src="https://static-cdn.jtvnw.net/ttv-boxart/490382-120x160.jpg">
+        <div style="flex:1">
+          <p class="name">For Honor</p>
+          <p class="muted">Ubisoft</p>
+        </div>
+        <span class="dates">чт, 22 окт., 19:00 - чт, 12 нояб., 19:59 GMT+3</span>
+      </button>
+    </div>
+    <div class="details">
+      <strong class="camp-title">FH EntireDirectory Oct26</strong>
+      <p class="muted">Посмотрите и получите</p>
+      <p class="label">Награды</p>
+      <div class="rewards">
+        <div class="reward"><div class="pic"></div>2boost1crate</div>
+        <div class="reward"><div class="pic"></div>4XP + 3 Days + 2 Crates</div>
+        <div class="reward"><div class="pic"></div>4XP + 7 Days + 4 Crates</div>
+      </div>
+      <p class="label">Как получить Drop</p>
+      <p class="muted">Смотрите в течение 1 часа и получите награду 2boost1crate</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="head accordion-header" role="heading" aria-level="3">
+      <button aria-expanded="false" style="display:flex;align-items:center;gap:12px;flex:1;background:none;border:0;color:inherit;text-align:left;cursor:pointer;">
+        <img alt="Once Human" class="tw-image" src="https://static-cdn.jtvnw.net/ttv-boxart/1441208453_IGDB-120x160.jpg">
+        <div style="flex:1">
+          <p class="name">Once Human</p>
+          <p class="muted">Starry</p>
+        </div>
+        <span class="dates">чт, 22 окт., 05:00 - вс, 15 нояб., 14:59 GMT+3</span>
+      </button>
+    </div>
+    <div class="details">
+      <strong class="camp-title">Ocean Expansion Drops</strong>
+      <p class="muted">Посмотрите и получите</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="head accordion-header" role="heading" aria-level="3">
+      <button aria-expanded="false" style="display:flex;align-items:center;gap:12px;flex:1;background:none;border:0;color:inherit;text-align:left;cursor:pointer;">
+        <img alt="Where Winds Meet" class="tw-image" src="https://static-cdn.jtvnw.net/ttv-boxart/1630982727_IGDB-120x160.jpg">
+        <div style="flex:1">
+          <p class="name">Where Winds Meet</p>
+          <p class="muted">Where Winds Meet</p>
+        </div>
+        <span class="dates">чт, 15 окт., 08:30 - чт, 12 нояб., 08:29 GMT+3</span>
+      </button>
+    </div>
+    <div class="details"></div>
+  </div>
+
+</div>
+
+<script>
+  // как будто статистику посчитал инвентарь
+  localStorage.setItem('tak_inventoryStats', JSON.stringify({
+    at: Date.now(),
+    games: {
+      '490382': { total: 3, earned: 1, campaigns: 1, doneCampaigns: 0, allDone: false },
+      '1441208453_IGDB': { total: 5, earned: 3, campaigns: 2, doneCampaigns: 0, allDone: false },
+      '1630982727_IGDB': { total: 5, earned: 5, campaigns: 1, doneCampaigns: 1, allDone: true }
+    },
+    campaigns: {
+      'fh entiredirectory oct26': { total: 3, earned: 1, done: false },
+      'ocean expansion drops': { total: 5, earned: 3, done: false }
+    }
+  }));
+  localStorage.removeItem('tak_favoriteGames');
+  localStorage.removeItem('tak_hideCompleted');
+</script>
+
+<script src="../favorites.js"></script>
+</body>
+</html>

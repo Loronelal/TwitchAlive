@@ -1,0 +1,237 @@
+{
+  "communities": {
+    "0": [
+      "favorites_apply",
+      "favorites_applystarstate",
+      "favorites_gameof",
+      "favorites_partsfor",
+      "favorites_rawtext",
+      "favorites_rendercampaignpills",
+      "favorites_rendercontrol",
+      "favorites_renderdone",
+      "favorites_renderstatspill",
+      "favorites_sethidden",
+      "favorites_settext",
+      "favorites_statstimesuffix",
+      "favorites_watchstorage"
+    ],
+    "1": [
+      "favorites_builddonecontrol",
+      "favorites_clearfavorites",
+      "favorites_ensurestar",
+      "favorites_makestar",
+      "favorites_removefavorite",
+      "favorites_renderlist",
+      "favorites_showtoast",
+      "favorites_stopemptyfilter",
+      "favorites_styles",
+      "favorites_togglefavorite"
+    ],
+    "2": [
+      "favorites",
+      "favorites_applysafe",
+      "favorites_campaignname",
+      "favorites_get",
+      "favorites_isrelevant",
+      "favorites_set",
+      "favorites_watchdom"
+    ],
+    "3": [
+      "favorites_buildcontrol",
+      "favorites_closepanel",
+      "favorites_ondocmousedown",
+      "favorites_openpanel",
+      "favorites_positionpanel",
+      "favorites_setonlyfavorites",
+      "favorites_togglepanel"
+    ],
+    "4": [
+      "manifest",
+      "manifest_content_scripts",
+      "manifest_description",
+      "manifest_manifest_version",
+      "manifest_name",
+      "manifest_permissions",
+      "manifest_version"
+    ],
+    "5": [
+      "favorites_fixclippedstar",
+      "favorites_nameelementof",
+      "favorites_placestar",
+      "favorites_placestarabsolute",
+      "favorites_placestarinline"
+    ],
+    "6": [
+      "favorites_gameidfromimg",
+      "favorites_init",
+      "favorites_loadstatsfrominventorypage",
+      "favorites_measureall",
+      "favorites_savestats"
+    ],
+    "7": [
+      "favorites_isdeadreward",
+      "favorites_rewardearned",
+      "favorites_rewardrowof",
+      "favorites_rewardrowofimage",
+      "favorites_scancampaign"
+    ],
+    "8": [
+      "content",
+      "content_checkstreamstatus",
+      "content_collectrewards",
+      "content_ensureplaying"
+    ],
+    "9": [
+      "favorites_applyinventory",
+      "favorites_campaignbadge",
+      "favorites_setcampaignhidden"
+    ],
+    "10": [
+      "favorites_findtablist",
+      "favorites_mountcontrol"
+    ],
+    "11": [
+      "content_htmlmediaelement_pause"
+    ]
+  },
+  "cohesion": {
+    "0": 0.24358974358974358,
+    "1": 0.3333333333333333,
+    "2": 0.38095238095238093,
+    "3": 0.42857142857142855,
+    "4": 0.2857142857142857,
+    "5": 0.4,
+    "6": 0.4,
+    "7": 0.5,
+    "8": 0.5,
+    "9": 0.6666666666666666,
+    "10": 1.0,
+    "11": 1.0
+  },
+  "gods": [
+    {
+      "id": "favorites_apply",
+      "label": "apply()",
+      "degree": 24
+    },
+    {
+      "id": "favorites_renderlist",
+      "label": "renderList()",
+      "degree": 9
+    },
+    {
+      "id": "favorites_buildcontrol",
+      "label": "buildControl()",
+      "degree": 9
+    },
+    {
+      "id": "favorites_showtoast",
+      "label": "showToast()",
+      "degree": 8
+    },
+    {
+      "id": "favorites_applyinventory",
+      "label": "applyInventory()",
+      "degree": 8
+    },
+    {
+      "id": "favorites_settext",
+      "label": "setText()",
+      "degree": 7
+    },
+    {
+      "id": "favorites_init",
+      "label": "init()",
+      "degree": 7
+    },
+    {
+      "id": "favorites_rendercontrol",
+      "label": "renderControl()",
+      "degree": 6
+    },
+    {
+      "id": "favorites_watchstorage",
+      "label": "watchStorage()",
+      "degree": 6
+    },
+    {
+      "id": "favorites_clearfavorites",
+      "label": "clearFavorites()",
+      "degree": 6
+    }
+  ],
+  "surprises": [
+    {
+      "source": "apply()",
+      "target": "applyInventory()",
+      "source_files": [
+        "favorites.js",
+        "favorites.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "note": "Bridges community 0 → community 9"
+    },
+    {
+      "source": "apply()",
+      "target": "buildControl()",
+      "source_files": [
+        "favorites.js",
+        "favorites.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "note": "Bridges community 0 → community 3"
+    },
+    {
+      "source": "apply()",
+      "target": "ensureStar()",
+      "source_files": [
+        "favorites.js",
+        "favorites.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "note": "Bridges community 0 → community 1"
+    },
+    {
+      "source": "apply()",
+      "target": "fixClippedStar()",
+      "source_files": [
+        "favorites.js",
+        "favorites.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "note": "Bridges community 0 → community 5"
+    },
+    {
+      "source": "apply()",
+      "target": "gameIdFromImg()",
+      "source_files": [
+        "favorites.js",
+        "favorites.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "note": "Bridges community 0 → community 6"
+    }
+  ],
+  "questions": [
+    {
+      "type": "bridge_node",
+      "question": "Why does `apply()` connect `Community 0` to `Community 1`, `Community 2`, `Community 3`, `Community 5`, `Community 6`, `Community 9`, `Community 10`?",
+      "why": "High betweenness centrality (0.050) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `buildControl()` connect `Community 3` to `Community 0`, `Community 1`, `Community 2`, `Community 6`?",
+      "why": "High betweenness centrality (0.004) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `renderList()` connect `Community 1` to `Community 0`, `Community 2`, `Community 3`, `Community 6`?",
+      "why": "High betweenness centrality (0.004) - this node is a cross-community bridge."
+    }
+  ]
+}

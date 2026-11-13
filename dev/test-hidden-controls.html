@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>no controls outside drops</title>
+<style>
+  body { background: #0e0e10; color: #efeff1; font: 14px/1.4 system-ui, "Segoe UI", Roboto, Arial, sans-serif; margin: 16px; }
+  .tabs { display: flex; list-style: none; margin: 0 0 18px; padding: 0; gap: 4px; }
+  .tabs a { display: block; padding: 10px 12px; color: #efeff1; text-decoration: none; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<!-- «страница стрима»: своя полоса вкладок без ссылок на /drops -->
+<ul class="tabs" role="tablist">
+  <li role="presentation"><a href="/dangerylocha" role="tab" aria-selected="true">Чат</a></li>
+  <li role="presentation"><a href="/dangerylocha/videos" role="tab" aria-selected="false">Видео</a></li>
+</ul>
+
+<div id="chat">фейковый чат</div>
+
+<script>
+  localStorage.removeItem('tak_inventoryStats');
+  localStorage.removeItem('tak_favoriteGames');
+
+  const s = document.createElement('script');
+  s.src = '../favorites.js';
+  s.onload = () => start();
+  document.body.appendChild(s);
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  async function start() {
+    const errs = [];
+    const ok = (cond, msg) => { if (!cond) errs.push(msg); };
+    const finish = () => {
+      const pre = document.createElement('pre');
+      pre.id = 'result';
+      pre.textContent = errs.length ? 'FAIL\n' + errs.join('\n') : 'PASS';
+      document.body.appendChild(pre);
+      document.title = errs.length ? 'FAIL' : 'PASS';
+    };
+
+    await sleep(400);
+
+    try {
+      const visible = (el) => !!el && getComputedStyle(el).display !== 'none';
+
+      ok(!visible(document.querySelector('.tak-fav-li')) || !document.querySelector('.tak-fav-li'),
+        'на странице стрима не должно быть нашей вкладки «Избранное»');
+      ok(!visible(document.querySelector('.tak-fav-main')), 'кнопка «Избранное» не должна висеть на странице стрима');
+      ok(!visible(document.querySelector('.tak-done-main')), 'кнопка «Готово» не должна висеть на странице стрима');
+      ok(!document.querySelector('ul[role="tablist"] .tak-fav-li'),
+        'наши пункты не должны влезать в чужие вкладки');
+
+    } catch (e) {
+      errs.push('Исключение: ' + (e && e.stack ? e.stack.split('\n')[0] : e));
+    }
+
+    finish();
+  }
+</script>
+</body>
+</html>

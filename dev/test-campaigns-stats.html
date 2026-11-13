@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>campaigns + stats fixture</title>
+<style>
+  body { background: #0e0e10; color: #efeff1; font: 14px/1.4 system-ui, "Segoe UI", Roboto, Arial, sans-serif; margin: 16px; }
+  .card { border-bottom: 1px solid #1f1f23; max-width: 720px; }
+  .head { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+  .head img { width: 40px; height: 53px; border-radius: 2px; }
+  .head p { margin: 0; }
+  .muted { color: #adadb8; font-size: 12px; }
+  .details { padding: 8px 0 14px; }
+  .details strong { display: block; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<ul role="tablist" style="display:flex; list-style:none; margin:0 0 16px; padding:0;">
+  <li role="presentation"><a href="/drops/inventory" role="tab" aria-selected="false" style="color:#efeff1;padding:8px 10px;display:block;">Инвентарь</a></li>
+  <li role="presentation"><a href="/drops/campaigns" role="tab" aria-selected="true" style="color:#bf94ff;padding:8px 10px;display:block;">Все кампании</a></li>
+  <li role="presentation"><a href="/drops/social-badge" role="tab" aria-selected="false" style="color:#efeff1;padding:8px 10px;display:block;">Значок за посты в соцсетях</a></li>
+</ul>
+
+<div id="list">
+  <div class="card" data-game="winds">
+    <div class="head accordion-header" role="heading" aria-level="3">
+      <button class="tw-interactable" aria-expanded="false" style="display:flex;align-items:center;gap:12px;flex:1;background:none;border:0;color:inherit;text-align:left;cursor:pointer;">
+        <img alt="Where Winds Meet" class="tw-image" src="https://static-cdn.jtvnw.net/ttv-boxart/2001_IGDB-120x160.jpg">
+        <div style="flex:1">
+          <p class="core">Where Winds Meet</p>
+          <p class="muted">Where Winds Meet</p>
+        </div>
+        <span class="muted">чт, 15 окт., 08:30 - чт, 12 нояб., 08:29 GMT+3</span>
+      </button>
+    </div>
+    <div class="details">
+      <strong class="core">Where Winds Meet Launch</strong>
+      <p class="muted">Посмотрите и получите</p>
+    </div>
+  </div>
+
+  <div class="card" data-game="once">
+    <div class="head accordion-header" role="heading" aria-level="3">
+      <button class="tw-interactable" aria-expanded="false" style="display:flex;align-items:center;gap:12px;flex:1;background:none;border:0;color:inherit;text-align:left;cursor:pointer;">
+        <img alt="Once Human" class="tw-image" src="https://static-cdn.jtvnw.net/ttv-boxart/2002_IGDB-120x160.jpg">
+        <div style="flex:1">
+          <p class="core">Once Human</p>
+          <p class="muted">Starry</p>
+        </div>
+        <span class="muted">чт, 22 окт., 05:00 - вс, 15 нояб., 14:59 GMT+3</span>
+      </button>
+    </div>
+    <div class="details">
+      <strong class="core">Ocean Expansion Drops</strong>
+      <p class="muted">Посмотрите и получите</p>
+      <div class="ScTower gBmiMA tw-tower">
+        <div class="khtvTe"><p class="CoreText gUQtFU">Ocean A</p></div>
+        <div class="khtvTe"><p class="CoreText gUQtFU">Ocean B</p></div>
+        <div class="khtvTe"><p class="CoreText gUQtFU">Ocean C</p></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-game="cyber">
+    <div class="head accordion-header" role="heading" aria-level="3">
+      <button class="tw-interactable" aria-expanded="false" style="display:flex;align-items:center;gap:12px;flex:1;background:none;border:0;color:inherit;text-align:left;cursor:pointer;">
+        <img alt="Cyberpunk 2077" class="tw-image" src="https://static-cdn.jtvnw.net/ttv-boxart/2003-120x160.jpg">
+        <div style="flex:1">
+          <p class="core">Cyberpunk 2077</p>
+          <p class="muted">CD PROJEKT RED</p>
+        </div>
+        <span class="muted">чт, 22 окт., 13:00 - чт, 19 нояб., 12:59 GMT+3</span>
+      </button>
+    </div>
+    <div class="details"></div>
+  </div>
+
+  <!-- всё, что можно было получить, собрано, но часть наград истекла: 2 из 5 -->
+  <div class="card" data-game="sieg">
+    <div class="head accordion-header" role="heading" aria-level="3">
+      <button class="tw-interactable" aria-expanded="false" style="display:flex;align-items:center;gap:12px;flex:1;background:none;border:0;color:inherit;text-align:left;cursor:pointer;">
+        <img alt="Rainbow Six Siege" class="tw-image" src="https://static-cdn.jtvnw.net/ttv-boxart/2004-120x160.jpg">
+        <div style="flex:1">
+          <p class="core">Rainbow Six Siege</p>
+          <p class="muted">Ubisoft</p>
+        </div>
+        <span class="muted">ср, 21 окт., 15:00 - ср, 11 нояб., 14:59 GMT+3</span>
+      </button>
+    </div>
+    <div class="details"></div>
+  </div>
+
+  <!-- новая игра: в кэше её нет, состав узнаём из раскрытого блока -->
+  <div class="card" data-game="bf">
+    <div class="head accordion-header" role="heading" aria-level="3">
+      <button class="tw-interactable" aria-expanded="true" style="display:flex;align-items:center;gap:12px;flex:1;background:none;border:0;color:inherit;text-align:left;cursor:pointer;">
+        <img alt="Battlefield 6" class="tw-image" src="https://static-cdn.jtvnw.net/ttv-boxart/2005_IGDB-120x160.jpg">
+        <div style="flex:1">
+          <p class="core">Battlefield 6</p>
+          <p class="muted">Electronic Arts</p>
+        </div>
+        <span class="muted">пт, 6 нояб., 08:00 - пт, 4 дек., 07:59 GMT+3</span>
+      </button>
+    </div>
+    <div class="details">
+      <strong class="core">BF Creator Program Drops</strong>
+      <div class="ScTower gBmiMA tw-tower">
+        <div class="khtvTe"><p class="CoreText gUQtFU">Cranium Radium</p></div>
+        <div class="khtvTe"><p class="CoreText gUQtFU">Ground Truth</p></div>
+        <div class="khtvTe"><p class="CoreText gUQtFU">Radiant Menace</p></div>
+        <div class="khtvTe"><p class="CoreText gUQtFU">Red Ghost Saboteur</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // как будто инвентарь уже посчитал статистику
+  localStorage.setItem('tak_inventoryStats', JSON.stringify({
+    at: Date.now(),
+    games: {
+      '2001_IGDB': { total: 5, earned: 5, campaigns: 1, doneCampaigns: 1, allDone: true },
+      '2002_IGDB': { total: 5, earned: 3, campaigns: 2, doneCampaigns: 0, allDone: false },
+      '2003': { total: 2, earned: 0, campaigns: 1, doneCampaigns: 0, allDone: false },
+      '2004': { total: 5, earned: 2, campaigns: 1, doneCampaigns: 1, allDone: true }
+    },
+    campaigns: {
+      'where winds meet launch': { total: 5, earned: 5, done: true, gameId: '2001_IGDB', fp: 'f1' },
+      'ocean expansion drops': { total: 5, earned: 3, done: false, gameId: '2002_IGDB', fp: 'f2' },
+      // эта кампания матчится к строке Cyberpunk по дате окончания
+      'cyberpunk drop': { total: 2, earned: 1, done: false, gameId: '2003', ends: 'чт, 19 нояб., 12:59 gmt+3', fp: 'f3' },
+      'siege campaign': { total: 5, earned: 2, done: true, gameId: '2004', fp: 'f4' }
+    },
+    // получено по данным блока «Получено»
+    claimed: { 'ocean a': 1 }
+  }));
+  localStorage.removeItem('tak_favoriteGames');
+  localStorage.removeItem('tak_onlyFavorites');
+  localStorage.removeItem('tak_hideCompleted');
+
+  const logged = [];
+  const nativeLog = console.log.bind(console);
+  console.log = (...args) => {
+    logged.push(args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' '));
+    nativeLog(...args);
+  };
+
+  const s = document.createElement('script');
+  s.src = '../favorites.js';
+  s.onload = () => start();
+  document.body.appendChild(s);
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  async function start() {
+    const errs = [];
+    const ok = (cond, msg) => { if (!cond) errs.push(msg); };
+    const finish = () => {
+      const pre = document.createElement('pre');
+      pre.id = 'result';
+      pre.textContent = errs.length ? 'FAIL\n' + errs.join('\n') + '\n\nЛОГ:\n' + logged.slice(-12).join('\n') : 'PASS';
+      document.body.appendChild(pre);
+      document.title = errs.length ? 'FAIL' : 'PASS';
+    };
+
+    await sleep(300);
+
+    try {
+      const card = (g) => document.querySelector('[data-game="' + g + '"]');
+      const pill = (g) => card(g).querySelector('.tak-done-pill');
+      const pillText = (g) => (pill(g) ? pill(g).textContent : '—');
+      const campPill = (g) => card(g).querySelector('.tak-camp-pill');
+      const campPillText = (g) => (campPill(g) ? campPill(g).textContent : '—');
+      const visible = (el) => !!el && getComputedStyle(el).display !== 'none';
+      const count = () => document.querySelector('.tak-done-count').textContent;
+
+      // ---------- 1. счётчики у названия игры ----------
+      ok(pillText('winds') === '✓ 5/5', 'Where Winds Meet: ждали «✓ 5/5», а там ' + pillText('winds'));
+      // у Once Human раскрыт блок с тремя наградами и одна из них в «Получено»
+      ok(pillText('once') === '1/3', 'Once Human: ждали 1/3 по «Получено», а там ' + pillText('once'));
+      ok(pillText('cyber') === '1/2', 'Cyberpunk: ждали 1/2 по дате окончания, а там ' + pillText('cyber'));
+      // 2 из 5, хотя кампания «завершена» (остальное истекло) — зелёным быть не должно
+      ok(pillText('sieg') === '2/5', 'Rainbow Six: ждали серое «2/5», а там ' + pillText('sieg'));
+      ok(pill('sieg').style.color === 'rgb(173, 173, 184)', '2/5 не должно быть зелёным: ' + pill('sieg').style.color);
+      ok((pill('once').title || '').indexOf('Собрано 1 из 3') === 0, 'в подсказке нет текста про 1 из 3: ' + (pill('once').title || ''));
+
+      // ---------- 1b. счётчики у названия кампании в раскрытом блоке ----------
+      ok(campPillText('once') === '1/3', 'у кампании «Ocean Expansion Drops» ждали 1/3 по «Получено», а там ' + campPillText('once'));
+      ok(campPillText('winds') === '✓ 5/5', 'у кампании «Where Winds Meet Launch» ждали «✓ 5/5», а там ' + campPillText('winds'));
+      ok(!campPill('cyber'), 'у Cyberpunk нет данных — счётчика кампании быть не должно');
+      ok((campPill('once').title || '').indexOf('наград кампании') > 0, 'в подсказке кампании нет пояснения');
+
+      // ---------- 1c. раскрытая кампания запоминается ----------
+      const afterOpen = JSON.parse(localStorage.getItem('tak_inventoryStats') || 'null');
+      ok(afterOpen && afterOpen.campaigns && afterOpen.campaigns['bf creator program drops'],
+        'раскрытая кампания не попала в кэш: ' + JSON.stringify(Object.keys(afterOpen && afterOpen.campaigns || {})));
+      ok(afterOpen && afterOpen.campaigns['bf creator program drops'].total === 4,
+        'у BF должно быть 4 награды, а там ' + JSON.stringify(afterOpen && afterOpen.campaigns['bf creator program drops']));
+      ok(campPillText('bf') === '0/4', 'у BF ждали 0/4, а там ' + campPillText('bf'));
+
+      // ---------- 2. вкладка «Готово» ----------
+      ok(document.querySelector('.tak-done-main'), 'вкладка «Готово» не появилась');
+      ok(count() === '2', 'полностью собранных игр должно быть 2, а ' + count());
+
+      document.querySelector('.tak-done-main').click();
+      await sleep(150);
+      ok(!visible(card('winds')), 'полностью собранная игра должна скрыться');
+      ok(visible(card('once')) && visible(card('cyber')), 'остальные игры должны остаться');
+      ok(!visible(card('sieg')), 'завершённая игра со счётчиком 2/5 тоже должна скрыться');
+      ok(localStorage.getItem('tak_hideCompleted') === 'true', 'флаг не сохранился');
+
+      document.querySelector('.tak-done-main').click();
+      await sleep(150);
+      ok(visible(card('winds')), 'после выключения фильтра игра должна вернуться');
+
+      // ---------- 3. звёздочка избранного не сломалась ----------
+      const star = card('once').querySelector('.tak-fav-star');
+      ok(!!star, 'звезда не появилась рядом с названием');
+      star.click();
+      await sleep(150);
+      ok(star.getAttribute('aria-pressed') === 'true', 'звезда не включилась');
+      ok(pillText('once') === '1/3', 'счётчик не должен пострадать от звезды: ' + pillText('once'));
+      ok(campPillText('once') === '1/3', 'счётчик кампании пострадал от звезды: ' + campPillText('once'));
+
+      // ---------- 4. перерисовка ----------
+      const html = document.getElementById('list').innerHTML;
+      document.getElementById('list').innerHTML = html;
+      await sleep(350);
+      ok(pillText('winds') === '✓ 5/5', 'после перерисовки счётчик игры не восстановился');
+      ok(document.querySelectorAll('.tak-done-pill').length === 5, 'после перерисовки счётчиков игр не 5: ' + document.querySelectorAll('.tak-done-pill').length);
+      ok(document.querySelectorAll('.tak-camp-pill').length === 3, 'после перерисовки счётчиков кампаний не 3: ' + document.querySelectorAll('.tak-camp-pill').length);
+
+    } catch (e) {
+      errs.push('Исключение: ' + (e && e.stack ? e.stack.split('\n')[0] : e));
+    }
+
+    finish();
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>gql fixture</title>
+<style>
+  body { background: #0e0e10; color: #efeff1; font: 14px/1.4 system-ui, "Segoe UI", Roboto, Arial, sans-serif; margin: 16px; }
+  .card { border-bottom: 1px solid #1f1f23; max-width: 720px; }
+  .head { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+  .head img { width: 40px; height: 53px; border-radius: 2px; }
+  .head p { margin: 0; }
+  .muted { color: #adadb8; font-size: 12px; }
+  .details { padding: 8px 0 14px; }
+</style>
+</head>
+<body>
+
+<ul role="tablist" style="display:flex; list-style:none; margin:0 0 16px; padding:0;">
+  <li role="presentation"><a href="/drops/inventory" role="tab" aria-selected="false" style="color:#efeff1;padding:8px 10px;display:block;">Инвентарь</a></li>
+  <li role="presentation"><a href="/drops/campaigns" role="tab" aria-selected="true" style="color:#bf94ff;padding:8px 10px;display:block;">Все кампании</a></li>
+</ul>
+
+<div id="list">
+  <div class="card" data-game="forhonor">
+    <div class="head accordion-header" role="heading" aria-level="3">
+      <button aria-expanded="false" style="display:flex;align-items:center;gap:12px;flex:1;background:none;border:0;color:inherit;text-align:left;cursor:pointer;">
+        <img alt="For Honor" class="tw-image" src="https://static-cdn.jtvnw.net/ttv-boxart/490382-120x160.jpg">
+        <div style="flex:1">
+          <p class="core">For Honor</p>
+          <p class="muted">Ubisoft</p>
+        </div>
+        <span class="muted">чт, 22 окт., 19:00 - чт, 12 нояб., 19:59 GMT+3</span>
+      </button>
+    </div>
+    <div class="details">
+      <strong class="dz">FH EntireDirectory Oct26</strong>
+    </div>
+  </div>
+</div>
+
+<script>
+  // кэша нет; операцию уже «подсмотрели», и схеме доверяем
+  localStorage.removeItem('tak_inventoryStats');
+  localStorage.removeItem('tak_favoriteGames');
+  localStorage.removeItem('tak_hideCompleted');
+  localStorage.setItem('tak_gqlOk', 'true');
+  localStorage.setItem('tak_gqlOp', JSON.stringify({ op: 'Inventory', hash: 'deadbeef', vars: { login: null }, at: Date.now() }));
+
+  // ответ GraphQL, как будто Twitch отдал инвентарь
+  const GQL_RESPONSE = {
+    data: {
+      currentUser: {
+        inventory: {
+          dropCampaigns: [
+            {
+              name: 'FH EntireDirectory Oct26',
+              game: { id: '490382', boxArtURL: 'https://static-cdn.jtvnw.net/ttv-boxart/490382-285x380.jpg' },
+              drops: [
+                { name: '2boost1crate', progress: 100 },
+                { name: '4XP + 3 Days + 2 Crates', progress: 40 },
+                { name: '4XP + 7 Days + 4 Crates', progress: 0 }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  };
+
+  let gqlCalls = 0;
+  window.fetch = function (url, init) {
+    if (String(url).indexOf('gql.twitch.tv') !== -1) {
+      gqlCalls++;
+      const body = JSON.parse((init && init.body) || '{}');
+      if (!body.operationName || !body.extensions) {
+        return Promise.resolve(new Response('{}', { status: 400 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify(GQL_RESPONSE), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      }));
+    }
+    return Promise.resolve(new Response('', { status: 404 }));
+  };
+
+  const s = document.createElement('script');
+  s.src = '../favorites.js';
+  s.onload = () => start();
+  document.body.appendChild(s);
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  async function start() {
+    const errs = [];
+    const ok = (cond, msg) => { if (!cond) errs.push(msg); };
+    const finish = () => {
+      const pre = document.createElement('pre');
+      pre.id = 'result';
+      pre.textContent = errs.length ? 'FAIL\n' + errs.join('\n') : 'PASS';
+      document.body.appendChild(pre);
+      document.title = errs.length ? 'FAIL' : 'PASS';
+    };
+
+    await sleep(700);
+
+    try {
+      const pill = () => document.querySelector('[data-game="forhonor"] .tak-done-pill');
+      const campPill = () => document.querySelector('[data-game="forhonor"] .tak-camp-pill');
+
+      ok(gqlCalls > 0, 'GraphQL не запрашивался');
+
+      const saved = JSON.parse(localStorage.getItem('tak_inventoryStats') || 'null');
+      ok(!!saved && !!saved.games, 'статистика из GraphQL не сохранилась');
+      ok(saved && saved.games['490382'] && saved.games['490382'].total === 3,
+        'For Honor: ждали 3 награды, а там ' + JSON.stringify(saved && saved.games['490382']));
+      ok(saved && saved.games['490382'].earned === 1,
+        'For Honor: ждали 1 собранную, а там ' + JSON.stringify(saved && saved.games['490382']));
+      ok(saved && saved.campaigns['fh entiredirectory oct26'] && saved.campaigns['fh entiredirectory oct26'].earned === 1,
+        'кампания не разобралась');
+
+      ok(pill() && pill().textContent === '1/3', 'у игры не появился счётчик: ' + (pill() && pill().textContent));
+      ok(campPill() && campPill().textContent === '1/3', 'у кампании не появился счётчик: ' + (campPill() && campPill().textContent));
+
+    } catch (e) {
+      errs.push('Исключение: ' + (e && e.stack ? e.stack.split('\n')[0] : e));
+    }
+
+    finish();
+  }
+</script>
+</body>
+</html>
