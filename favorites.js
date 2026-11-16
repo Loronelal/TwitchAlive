@@ -28,7 +28,7 @@
   const log = (...a) => console.log('%c[TwitchAlive:fav]', 'color:#a970ff;font-weight:600', ...a);
 
   /** Метка сборки: по ней в консоли видно, что загружен именно свежий код. */
-  const BUILD = 'scan-all-2';
+  const BUILD = 'scan-all-9';
   const norm = (s) => String(s == null ? '' : s).replace(/\s+/g, ' ').trim().toLowerCase();
 
   /* ============================================================
@@ -141,7 +141,9 @@
     for (const p of header.querySelectorAll('p')) {
       if (cleanText(p) === key) return p;
     }
-    return null;
+    // кампания может называться иначе, чем игра (например, «Toying Around Add-On»
+    // у Minecraft): тогда подпись ставим к первому абзацу — названию кампании
+    return header.querySelector('p');
   }
 
   /**
@@ -165,6 +167,12 @@
       return parts;
     }
     return [parent];
+  }
+
+  /** Панель с наградами: последняя часть строки (в обычном случае — обёртка). */
+  function panelOf(header) {
+    const parts = partsFor(header);
+    return parts[parts.length - 1];
   }
 
   /** Скрываем/показываем через inline-style: не зависим от CSP и классов Twitch. */
@@ -916,18 +924,29 @@
 
       // если кампания раскрыта — считаем честно по её наградам и блоку «Получено»
       const claimed = stats && stats.claimed ? stats.claimed : null;
-      const names = rewardNamesIn(scope, header);
-      const exact = names && claimed
-        ? { total: names.length, earned: earnedFromClaimed(names, claimed) || 0 }
+      const entries = rewardEntriesIn(scope, header);
+      const byClaim = entries && entries.length && claimed
+        ? earnedFromClaimed(entries, claimed)
+        : null;
+      const exact = byClaim != null
+        ? { total: entries.length, earned: byClaim }
         : null;
 
-      // иначе ищем кампанию этой игры по дате окончания из строки
-      const rowCampaign = exact ? null : campaignByEnds(gameId, rawText(header));
-      const shown = exact || (rowCampaign
-        ? { total: rowCampaign.total, earned: rowCampaign.earned }
-        : null);
+      // иначе ищем кампанию этой игры по дате окончания из строки.
+      // Пока панель дорисовывается, «точный» замер может быть неполным
+      // (4 из 5): в таком случае доверяем запомненному замеру строки.
+      const rowCampaign = gameId
+        ? campaignByEnds(gameId, rawText(header))
+        : null;
+      let shown = exact;
+      if (rowCampaign && (!shown || shown.total < rowCampaign.total)) {
+        shown = { total: rowCampaign.total, earned: rowCampaign.earned };
+      }
 
-      renderStatsPill(header, name, game, shown);
+      // агрегат по игре годится только когда кампания одна; иначе до
+      // точного замера строки он может показать чужую кампанию (0/5 vs 4/4)
+      const gameFallback = game && game.campaigns <= 1 ? game : null;
+      renderStatsPill(header, name, gameFallback, shown);
       if (game && game.allDone) doneGroups++;
 
       const hide = (onlyFavorites && favorites.size > 0 && !fav)
@@ -938,9 +957,10 @@
       renderCampaignPills(header, parts, exact);
 
       // раскрытая кампания — единственный источник её состава на этой странице,
-      // поэтому запоминаем её, чтобы счётчик жил и после сворачивания
-      if (names && names.length) {
-        rememberOpenCampaign(scope, header, gameId, names, exact);
+      // поэтому запоминаем её, чтобы счётчик жил и после сворачивания.
+      // Без списка «Получено» не пишем: иначе застрянет ложное 0/5.
+      if (entries && entries.length && exact) {
+        rememberOpenCampaign(scope, header, gameId, entries, exact);
       }
 
       placed.push([header, star, star._host]);
@@ -948,6 +968,12 @@
 
     // вторым проходом — только замеры, чтобы не устраивать layout-шторм
     for (const [header, star, host] of placed) fixClippedStar(header, star, host);
+
+    // зелёная полоса под уже полученными наградами (на инвентаре это
+    // делает applyInventory, тут — раскрытые кампании)
+    if (stats && stats.claimed && !document.querySelector(CAMPAIGN_SEL)) {
+      markClaimedRewards(document, stats.claimed);
+    }
 
     const inventoryDone = applyInventory();
     doneCount = inventoryDone >= 0 ? inventoryDone : doneGroups;
@@ -992,10 +1018,26 @@
   const CLAIMED_TIME_RE = /назад|ago|только что/i;
 
   /**
-   * Награды, реально полученные по данным блока «Получено»:
-   * norm(название) -> количество. Это точнее полосок прогресса: полоска
-   * может быть 100%, а награда ещё не забрана.
+   * Награды, реально полученные по данным блока «Получено».
+   * Ключ — адрес картинки награды (`s:...`), потому что одноимённые награды
+   * из разных игр — разные предметы. Если картинки нет, остаётся имя (`n:...`).
    */
+  const CLAIMED_SRC_PREFIX = 's:';
+  const CLAIMED_NAME_PREFIX = 'n:';
+
+  function rewardSrc(img) {
+    const raw = (img && img.getAttribute('src')) || '';
+    return raw.split('?')[0].split('#')[0];
+  }
+
+  function claimedKey(name, src) {
+    if (src) return CLAIMED_SRC_PREFIX + src;
+    const text = norm(name);
+    return text ? CLAIMED_NAME_PREFIX + text : '';
+  }
+
+  const isClaimedKey = (key) => key.startsWith(CLAIMED_SRC_PREFIX) || key.startsWith(CLAIMED_NAME_PREFIX);
+
   function claimedFromPage(root) {
     const claimed = {};
 
@@ -1007,29 +1049,160 @@
       if (!texts.some((text) => CLAIMED_TIME_RE.test(text))) continue;   // не «Получено»
 
       const name = texts.find((text) => !CLAIMED_TIME_RE.test(text));
-      if (!name) continue;
+      const key = claimedKey(name, rewardSrc(img));
+      if (!key) continue;
 
       const badge = [...card.querySelectorAll('div')]
         .map((el) => el.textContent.trim())
         .find((text) => /^\d+$/.test(text));
       const qty = badge ? Number(badge) : 1;
 
-      const key = norm(name);
       claimed[key] = (claimed[key] || 0) + (qty > 0 ? qty : 1);
     }
 
     return claimed;
   }
 
-  /** Сколько из списка наград реально получено (по названиям, с учётом повторов). */
-  function earnedFromClaimed(names, claimed) {
+  function addClaimedTo(map, name, src, qty) {
+    const clean = src ? String(src).split('?')[0].split('#')[0] : '';
+    const key = claimedKey(name, clean);
+    if (!key) return;
+    const count = Number(qty) > 0 ? Number(qty) : 1;
+    map[key] = (map[key] || 0) + count;
+  }
+
+  /**
+   * «Получено» из ответа GraphQL Inventory: earnedDropRewards (награды
+   * кампаний), gameEventDropsConnection (событийные дропы) и isClaimed
+   * у текущих кампаний. Это надёжнее DOM-пагинации: кнопка «Загрузить еще»
+   * может не догрузиться из-за проверки целостности Twitch.
+   */
+  function claimedFromInventoryJson(json) {
+    const maps = [];
+
+    const visit = (node, depth) => {
+      if (!node || typeof node !== 'object' || depth > 16) return;
+
+      if (Array.isArray(node)) {
+        for (const item of node) visit(item, depth + 1);
+        return;
+      }
+
+      if (node.earnedDropRewards && Array.isArray(node.earnedDropRewards.edges)) {
+        const map = {};
+        for (const edge of node.earnedDropRewards.edges) {
+          const reward = edge && edge.node;
+          if (!reward || reward.status !== 'CLAIMED') continue;
+          const item = reward.item || {};
+          addClaimedTo(map, item.name, item.thumbnailURL, 1);
+        }
+        maps.push(map);
+      }
+
+      if (node.gameEventDropsConnection && Array.isArray(node.gameEventDropsConnection.edges)) {
+        const map = {};
+        for (const edge of node.gameEventDropsConnection.edges) {
+          const reward = edge && edge.node;
+          if (!reward) continue;
+          addClaimedTo(map, reward.name, reward.imageURL, reward.totalCount || 1);
+        }
+        maps.push(map);
+      }
+
+      if (Array.isArray(node.timeBasedDrops)) {
+        const map = {};
+        for (const drop of node.timeBasedDrops) {
+          if (!drop || !drop.self || !drop.self.isClaimed) continue;
+
+          const benefits = Array.isArray(drop.benefitEdges) ? drop.benefitEdges : [];
+          let added = false;
+          for (const edge of benefits) {
+            const benefit = edge && edge.benefit;
+            if (!benefit) continue;
+            addClaimedTo(map, benefit.name, benefit.imageAssetURL, 1);
+            added = true;
+          }
+          if (!added) addClaimedTo(map, drop.name, '', 1);
+        }
+        maps.push(map);
+      }
+
+      for (const key of Object.keys(node)) {
+        const value = node[key];
+        if (value && typeof value === 'object') visit(value, depth + 1);
+      }
+    };
+
+    visit(json, 0);
+
+    const claimed = {};
+    for (const map of maps) {
+      for (const key of Object.keys(map)) {
+        claimed[key] = Math.max(claimed[key] || 0, map[key]);
+      }
+    }
+    return claimed;
+  }
+
+  /** Награды кампании в виде { name, src } — по одной на строку башни. */
+  function rewardEntriesInTower(tower, header) {
+    const entries = [];
+    for (const row of tower.children) {
+      if (header && header.contains(row)) continue;
+      const name = rewardNameIn(row);
+      if (!name) continue;
+      const img = row.querySelector('img.inventory-drop-image, img.tw-image');
+      entries.push({ name, src: rewardSrc(img) });
+    }
+    return entries;
+  }
+
+  /** Названия наград башни: по одному на строку, в порядке разметки. */
+  function rewardNamesInTower(tower, header) {
+    return rewardEntriesInTower(tower, header).map((entry) => entry.name);
+  }
+
+  /** Награды в раскрытом блоке кампании (без шапки). */
+  function rewardEntriesIn(scope, header) {
+    if (!scope || scope === header) return null;
+
+    const entries = [];
+    for (const tower of scope.querySelectorAll('.tw-tower')) {
+      entries.push(...rewardEntriesInTower(tower, header));
+    }
+
+    return entries.length ? entries : null;
+  }
+
+  /** Названия наград в раскрытом блоке кампании (без шапки). */
+  function rewardNamesIn(scope, header) {
+    const entries = rewardEntriesIn(scope, header);
+    return entries ? entries.map((entry) => entry.name) : null;
+  }
+
+  /**
+   * Сколько наград из списка реально получено. Сначала сверяем картинку:
+   * одинаковые названия у разных игр — разные награды. Имя используем только
+   * если у награды нет картинки или в кэше вообще нет src-ключей.
+   */
+  function earnedFromClaimed(entries, claimed) {
     if (!claimed) return null;
+
+    const keys = Object.keys(claimed).filter(isClaimedKey);
+    if (!keys.length) return null;
+
+    const hasSrc = keys.some((key) => key.startsWith(CLAIMED_SRC_PREFIX));
     const pool = Object.assign({}, claimed);
     let earned = 0;
 
-    for (const name of names) {
-      const key = norm(name);
-      if (pool[key] > 0) {
+    for (const entry of entries || []) {
+      const srcKey = entry && entry.src ? claimedKey(entry.name, entry.src) : '';
+      const nameKey = entry && entry.name ? claimedKey(entry.name, '') : '';
+      let key = srcKey && pool[srcKey] > 0 ? srcKey : '';
+
+      if (!key && nameKey && (!entry.src || !hasSrc) && pool[nameKey] > 0) key = nameKey;
+
+      if (key) {
         pool[key] -= 1;
         earned += 1;
       }
@@ -1119,6 +1292,56 @@
     return node;
   }
 
+  /**
+   * Карточка награды на любой странице: в инвентаре — inventory-drop-image,
+   * на «Все кампании» — картинка внутри строки .tw-tower.
+   */
+  function rewardCardOfImage(img) {
+    if (img.classList && img.classList.contains('inventory-drop-image')) {
+      return rewardRowOfImage(img);
+    }
+
+    let node = img;
+    while (node.parentElement && !node.parentElement.classList.contains('tw-tower')) {
+      node = node.parentElement;
+      if (node.querySelector('p')) break;
+    }
+    return node;
+  }
+
+  /**
+   * Зелёная полоса под полученными наградами. Вёрстку не меняем —
+   * только внутренняя тень внизу карточки; при перерисовке ставим заново.
+   */
+  function markClaimedRewards(root, claimed) {
+    if (!root || !claimed) return;
+
+    const keys = Object.keys(claimed).filter(isClaimedKey);
+    const hasSrc = keys.some((key) => key.startsWith(CLAIMED_SRC_PREFIX));
+    if (!keys.length) return;
+
+    for (const img of root.querySelectorAll('img.inventory-drop-image, .tw-tower img.tw-image')) {
+      const src = rewardSrc(img);
+      const card = rewardCardOfImage(img);
+      if (!card) continue;
+
+      let got = !!(src && claimed[CLAIMED_SRC_PREFIX + src] > 0);
+      if (!got && !hasSrc) {
+        const name = [...card.querySelectorAll('p')].map(rawText).find(Boolean);
+        const key = name ? claimedKey(name, '') : '';
+        got = !!(key && claimed[key] > 0);
+      }
+
+      if (got) {
+        card.style.boxShadow = 'inset 0 -4px 0 #00d59b';
+        card.dataset.takClaimed = '1';
+      } else if (card.dataset.takClaimed === '1') {
+        card.style.boxShadow = '';
+        delete card.dataset.takClaimed;
+      }
+    }
+  }
+
   /** id игры из ссылки на обложку: .../ttv-boxart/460630-285x380.jpg -> 460630. */
   function gameIdFromImg(img) {
     const src = (img && img.getAttribute('src')) || '';
@@ -1158,20 +1381,26 @@
     const dead = bars.length - live.length;
 
     const towers = [...root.querySelectorAll('.tw-tower')];
-    const names = towers.length
-      ? towers.reduce((all, tower) => all.concat(rewardNamesInTower(tower)), [])
-      : [...root.querySelectorAll(REWARD_NAME_SEL)].map(rawText).filter(Boolean);
     const images = [...root.querySelectorAll('img.inventory-drop-image')];
+    let entries = towers.length
+      ? towers.reduce((all, tower) => all.concat(rewardEntriesInTower(tower)), [])
+      : [];
 
-    const total = names.length || images.length;
+    if (!entries.length) {
+      // запасной разбор: имена и картинки берём по порядку
+      const names = [...root.querySelectorAll(REWARD_NAME_SEL)].map(rawText).filter(Boolean);
+      entries = names.map((name, index) => ({ name, src: rewardSrc(images[index]) }));
+    }
 
-    // у живой кампании полоски точнее (они знают, что уже забрано),
-    // у завершённой полосок нет — сверяемся со списком «Получено»
-    const byClaim = earnedFromClaimed(names, claimed);
+    const names = entries.map((entry) => entry.name);
+    const srcs = entries.map((entry) => entry.src || '');
+    const total = entries.length || images.length;
+
+    // список «Получено» — источник правды: полоска на 100% без записи
+    // в «Получено» ещё не значит, что награда забрана
+    const byClaim = earnedFromClaimed(entries, claimed);
     const byProgress = images.filter(rewardEarned).length;
-    const earned = live.length
-      ? byProgress
-      : (byClaim != null && names.length ? byClaim : byProgress);
+    const earned = byClaim != null && entries.length ? byClaim : byProgress;
 
     // кнопки уровня кампании (например «Подключить» аккаунт) + кнопки живых наград
     const pending = hasAction(info) || live.some((bar) => hasAction(bar.row));
@@ -1187,16 +1416,20 @@
       dead,
       total,
       earned,
+      claimedEarned: byClaim,
       names,
+      srcs,
+      entries,
       hasRewards: total > 0,
       progress: incomplete.length ? Math.max(...incomplete.map((bar) => bar.value)) : 100,
-      done: watched && !pending
+      done: (byClaim != null && entries.length ? byClaim >= total : watched) && !pending
     };
   }
 
   const BADGE_LOOK = {
     done: { text: '✓ Получено', color: '#00d59b', background: 'rgba(0,177,127,.16)' },
     claim: { text: 'Забрать', color: '#ffd166', background: 'rgba(255,209,102,.16)' },
+    partial: { text: '', color: '#adadb8', background: 'rgba(255,255,255,.10)' },
     expired: { text: 'Недоступно', color: '#adadb8', background: 'rgba(255,255,255,.10)' },
     progress: { text: '', color: '#adadb8', background: 'rgba(255,255,255,.10)' }
   };
@@ -1250,6 +1483,25 @@
     return norm(raw.replace(/^.*?:\s*/, ''));
   }
 
+  const ROW_CACHE_PREFIX = '@row:';
+
+  /** Дата окончания из текста строки «Все кампании». */
+  function endsFromText(text) {
+    const value = String(text || '');
+    const index = value.lastIndexOf(' - ');
+    return index === -1 ? '' : norm(value.slice(index + 3));
+  }
+
+  /** Точный замер строки «Все кампании» (может содержать несколько кампаний). */
+  function rowCacheFor(header) {
+    if (!stats || !stats.campaigns) return null;
+    const gameId = gameIdFromImg(header.querySelector('img[src*="/ttv-boxart/"]'));
+    const ends = endsFromHeader(header);
+    if (!gameId || !ends) return null;
+    const item = stats.campaigns[ROW_CACHE_PREFIX + gameId + '|' + ends];
+    return item && item.row ? item : null;
+  }
+
   /**
    * Ищет кампанию этой игры по дате окончания, которая видна в строке
    * «Все кампании». Так счётчик в шапке относится к той кампании на экране,
@@ -1260,8 +1512,14 @@
     const haystack = norm(headerText);
     if (!haystack) return null;
 
+    // сначала точный замер всей строки: под одной шапкой Twitch может
+    // держать несколько кампаний (например, Cyberpunk 2077)
+    const ends = endsFromText(headerText);
+    const row = ends ? stats.campaigns[ROW_CACHE_PREFIX + gameId + '|' + ends] : null;
+    if (row && row.row) return row;
+
     for (const campaign of Object.values(stats.campaigns)) {
-      if (campaign.gameId !== gameId || !campaign.ends) continue;
+      if (campaign.row || campaign.gameId !== gameId || !campaign.ends) continue;
       if (haystack.indexOf(campaign.ends) !== -1) return campaign;
     }
     return null;
@@ -1292,7 +1550,8 @@
         total: state.total,
         earned: state.earned,
         done: state.done,
-        names: state.names
+        names: state.names,
+        srcs: state.srcs
       };
     });
 
@@ -1306,6 +1565,9 @@
     for (const key of Object.keys(campaigns)) {
       const campaign = campaigns[key];
       if (!campaign || !campaign.gameId) continue;
+      // общие замеры строк «Все кампании» не суммируем: они уже
+      // агрегируют несколько кампаний и дали бы двойной счёт
+      if (campaign.row) continue;
 
       const game = games[campaign.gameId] ||
         (games[campaign.gameId] = { total: 0, earned: 0, campaigns: 0, doneCampaigns: 0, name: '' });
@@ -1324,9 +1586,19 @@
     return games;
   }
 
-  /** Отпечаток набора наград: сменились названия — это уже другая кампания. */
-  function hashNames(names) {
-    const text = (names || []).map(norm).sort().join('|');
+  /** Награды кампании из кэша: names/srcs лежат параллельными массивами. */
+  function campaignEntries(campaign) {
+    const names = (campaign && campaign.names) || [];
+    const srcs = (campaign && campaign.srcs) || [];
+    return names.map((name, index) => ({ name, src: srcs[index] || '' }));
+  }
+
+  /** Отпечаток набора наград: сменились названия или картинки — другая кампания. */
+  function hashRewards(entries) {
+    const text = (entries || [])
+      .map((entry) => norm(entry && entry.name) + '\u0001' + ((entry && entry.src) || ''))
+      .sort()
+      .join('|');
     let hash = 5381;
     for (let i = 0; i < text.length; i++) hash = ((hash << 5) + hash + text.charCodeAt(i)) | 0;
     return String(hash >>> 0);
@@ -1347,15 +1619,18 @@
     const campaigns = Object.assign({}, (stats && stats.campaigns) || {});
 
     for (const key of Object.keys(fresh || {})) {
-      const item = fresh[key];
       const prev = campaigns[key];
-      const fp = hashNames(item.names);
+      const item = Object.assign({}, fresh[key]);
 
-      // названия наград поменялись — счётчики новые, старые не смешиваем
-      if (prev && prev.fp && prev.fp !== fp) {
-        campaigns[key] = { ...item, fp, at: now };
-        continue;
+      // у GraphQL/HTML-разбора нет картинок — берём их из прошлого замера,
+      // чтобы не потерять точное сопоставление по src
+      if ((!item.srcs || !item.srcs.some(Boolean)) && prev && Array.isArray(prev.srcs)) {
+        const byName = new Map();
+        (prev.names || []).forEach((name, index) => byName.set(norm(name), prev.srcs[index] || ''));
+        item.srcs = (item.names || []).map((name) => byName.get(norm(name)) || '');
       }
+
+      const fp = hashRewards(campaignEntries(item));
       campaigns[key] = { ...item, fp, at: now };
     }
 
@@ -1363,11 +1638,14 @@
       const campaign = campaigns[key];
       if (fresh && fresh[key]) continue;
 
-      if (Array.isArray(campaign.names) && campaign.names.length) {
-        const byClaim = earnedFromClaimed(campaign.names, claimed);
+      const entries = campaignEntries(campaign);
+      if (entries.length) {
+        const byClaim = earnedFromClaimed(entries, claimed);
         if (byClaim != null) {
+          const total = campaign.total || entries.length;
+          campaign.total = total;
           campaign.earned = byClaim;
-          if (byClaim >= campaign.total && campaign.total > 0) campaign.done = true;
+          campaign.done = total > 0 && byClaim >= total;
         }
       }
 
@@ -1396,15 +1674,25 @@
 
       const badge = campaignBadge(info);
       if (badge) {
+        // счётчик из «Получено» важнее полосок: 100% без записи в «Получено»
+        // ещё не значит, что награда забрана
+        const claimedLeft = state.claimedEarned != null && state.total > 0
+          && state.claimedEarned < state.total;
         const key = !state.watched
           ? 'progress'
           : state.pending
             ? 'claim'
-            : state.live === 0 && state.dead > 0
-              ? 'expired'
-              : 'done';
+            : claimedLeft
+              ? 'partial'
+              : state.live === 0 && state.dead > 0
+                ? 'expired'
+                : 'done';
         const look = BADGE_LOOK[key];
-        const text = key === 'progress' ? state.progress + '%' : look.text;
+        const text = key === 'progress'
+          ? state.progress + '%'
+          : key === 'partial'
+            ? state.earned + '/' + state.total
+            : look.text;
 
         setText(badge, text);
         badge.style.color = look.color;
@@ -1413,18 +1701,21 @@
           ? `Не досмотрено до конца, ближайшая награда на ${state.progress}%`
           : key === 'claim'
             ? 'Просмотр завершён, но награду ещё нужно забрать'
-            : key === 'expired'
-              ? 'Все награды кампании истекли — смотреть больше нечего'
-              : state.dead > 0
-                ? 'Получено; часть наград уже истекла и в расчёт не идёт'
-                : 'Все награды кампании получены';
+            : key === 'partial'
+              ? `Получено ${state.earned} из ${state.total} наград; остальных пока нет в «Получено»`
+              : key === 'expired'
+                ? 'Все награды кампании истекли — смотреть больше нечего'
+                : state.dead > 0
+                  ? 'Получено; часть наград уже истекла и в расчёт не идёт'
+                  : 'Все награды кампании получены';
       }
 
       setCampaignHidden(state.root, hideCompleted && state.done);
     });
 
     const merged = mergeCampaigns(measured.campaigns, claimed);
-    saveStats(merged, claimed);
+    saveStats(merged, claimed, stats && stats.claimedComplete);
+    markClaimedRewards(document, claimed);
 
     log(`инвентарь: на странице ${Object.keys(measured.campaigns).length} кампаний, ` +
       `в кэше ${Object.keys(merged).length}, «Получено» ${Object.keys(claimed).length}`);
@@ -1446,40 +1737,68 @@
    * находит свою кампанию в кэше и больше не раскрывается повторно.
    */
   function endsFromHeader(header) {
-    const text = rawText(header);
-    const index = text.lastIndexOf(' - ');
-    return index === -1 ? '' : norm(text.slice(index + 3));
+    return endsFromText(rawText(header));
   }
 
-  function rememberOpenCampaign(scope, header, gameId, names, exact) {
+  function rememberOpenCampaign(scope, header, gameId, entries, exact) {
+    if (!entries || !entries.length) return;
+
     const titleEl = scope && scope.querySelector ? scope.querySelector('strong') : null;
     const title = titleEl && !header.contains(titleEl) ? rawText(titleEl) : '';
-    if (!title) return;
+    const titleKey = norm(title);
+    const ends = endsFromHeader(header);
+    const cacheRowKey = ends && gameId ? ROW_CACHE_PREFIX + gameId + '|' + ends : '';
 
-    const key = norm(title);
+    // под одной шапкой Twitch может держать несколько кампаний/башен
+    // (например, Cyberpunk: Quadra Paintjobs + Chat Badge). Тогда пишем
+    // общий замер строки, иначе счётчик прыгает между кампаниями.
+    const multi = (scope.querySelectorAll('.tw-tower').length || 0) > 1 || !titleKey;
+    const key = multi ? cacheRowKey : titleKey;
     if (!key) return;
 
-    const fp = hashNames(names);
-    const current = stats && stats.campaigns ? stats.campaigns[key] : null;
-    const earned = exact ? exact.earned : 0;
-
-    // не перетираем более полные данные той же кампании
-    if (current && current.fp === fp && (current.earned || 0) >= earned) return;
-
+    const names = entries.map((entry) => entry.name);
+    const srcs = entries.map((entry) => entry.src || '');
+    const fp = hashRewards(entries);
     const campaigns = Object.assign({}, (stats && stats.campaigns) || {});
-    campaigns[key] = {
-      title,
-      gameId: current && current.gameId ? current.gameId : gameId,
-      ends: current && current.ends ? current.ends : endsFromHeader(header),
-      total: names.length,
-      earned,
-      done: names.length > 0 && earned >= names.length,
-      names,
-      fp,
-      at: Date.now()
+    const current = campaigns[key] || null;
+    const rowCurrent = cacheRowKey ? campaigns[cacheRowKey] : null;
+    // без данных «Получено» не обнуляем уже известный счётчик
+    const prevEarned = Math.max(
+      current ? current.earned || 0 : 0,
+      rowCurrent ? rowCurrent.earned || 0 : 0
+    );
+    const earned = Math.min(entries.length, exact ? exact.earned : prevEarned);
+
+    // не перетираем более полные данные, но общий замер строки всё же
+    // сохраняем, если его ещё нет
+    if (current && current.fp === fp && (current.earned || 0) >= earned) {
+      if (!cacheRowKey) return;
+      if (rowCurrent && rowCurrent.fp === fp && (rowCurrent.earned || 0) >= earned) return;
+    }
+
+    const now = Date.now();
+    const write = (target, isRow) => {
+      if (!target) return;
+      const prev = campaigns[target];
+      campaigns[target] = {
+        title: isRow ? (title || rawText(header)) : title,
+        gameId: prev && prev.gameId ? prev.gameId : gameId,
+        ends: prev && prev.ends ? prev.ends : ends,
+        total: entries.length,
+        earned,
+        done: entries.length > 0 && earned >= entries.length,
+        names,
+        srcs,
+        fp,
+        at: now,
+        ...(isRow ? { row: true } : {})
+      };
     };
 
-    saveStats(campaigns, stats && stats.claimed);
+    if (!multi) write(titleKey, false);
+    write(cacheRowKey, true);
+
+    saveStats(campaigns, stats && stats.claimed, stats && stats.claimedComplete);
   }
 
   /* ------------------------------------------------------------
@@ -1503,7 +1822,7 @@
     + '|' + endsFromHeader(header);
 
   function detailsNames(header) {
-    return rewardNamesIn(partsFor(header)[0], header);
+    return rewardNamesIn(panelOf(header), header);
   }
 
   async function waitForDetails(header, attempts) {
@@ -1515,15 +1834,41 @@
     return false;
   }
 
-  /** Нужно ли раскрывать строку: она в избранном и данных о кампании ещё нет. */
-  function rowNeedsScan(header) {
+  /**
+   * Ждём, пока панель дорисует все башни наград. У Cyberpunk под одной
+   * шапкой две кампании, и если прочитать только первую, счётчик навсегда
+   * застрянет на 4/4 вместо 4/5.
+   */
+  async function waitForStableEntries(header) {
+    let prev = -1;
+    let stable = 0;
+    for (let i = 0; i < 25; i++) {
+      const entries = rewardEntriesIn(panelOf(header), header);
+      const count = entries ? entries.length : 0;
+      if (count > 0 && count === prev) {
+        stable++;
+        if (stable >= 5) return count;
+      } else {
+        stable = 0;
+      }
+      prev = count;
+      await sleep(100);
+    }
+    return Math.max(0, prev);
+  }
+
+  /** Нужно ли раскрывать строку: в избранном и точного замера строки ещё нет. */
+  function rowNeedsScan(header, force) {
     // категории читаем только по избранным играм
     if (!isFavorite(gameOf(header))) return false;
-    if (probed.has(rowKey(header))) return false;           // уже пробовали в этом визите
+    if (!force) {
+      if (probed.has(rowKey(header))) return false;         // уже пробовали в этом визите
+      if (rowCacheFor(header)) return false;                // точный замер строки уже есть
+    }
     if (detailsNames(header)) return false;                 // уже раскрыта
     const gameId = gameIdFromImg(header.querySelector('img[src*="/ttv-boxart/"]'));
     if (!gameId) return false;
-    return !campaignByEnds(gameId, rawText(header));
+    return force || !rowCacheFor(header);
   }
 
   /** Строка ещё на экране (или чуть ниже/выше) — только такие и трогаем. */
@@ -1533,8 +1878,8 @@
   }
 
   /** Быстрое чтение одной категории: раскрыть, прочитать, свернуть. */
-  async function scanRow(header) {
-    if (!header.isConnected || !rowNeedsScan(header)) return false;
+  async function scanRow(header, force) {
+    if (!header.isConnected || !rowNeedsScan(header, force)) return false;
 
     // даже при неудаче второй раз эту строку в этом визите не трогаем
     probed.add(rowKey(header));
@@ -1548,16 +1893,22 @@
     try {
       button.click();
       await waitForDetails(header, 10);
+      await waitForStableEntries(header);
 
-      const scope = partsFor(header)[0];
-      const names = rewardNamesIn(scope, header);
+      const scope = panelOf(header);
+      const entries = rewardEntriesIn(scope, header);
       const gameId = gameIdFromImg(header.querySelector('img[src*="/ttv-boxart/"]'));
 
-      if (names && names.length) {
+      if (entries && entries.length) {
         const claimed = stats && stats.claimed ? stats.claimed : null;
-        const earned = claimed ? (earnedFromClaimed(names, claimed) || 0) : 0;
-        rememberOpenCampaign(scope, header, gameId, names, { total: names.length, earned });
-        ok = true;
+        const byClaim = claimed ? earnedFromClaimed(entries, claimed) : null;
+
+        // без списка «Получено» замер не записываем: 0/5 был бы враньём
+        if (byClaim != null) {
+          rememberOpenCampaign(scope, header, gameId, entries,
+            { total: entries.length, earned: byClaim });
+          ok = true;
+        }
       }
     } finally {
       if (button.getAttribute('aria-expanded') === 'true') button.click();  // вернуть как было
@@ -1638,9 +1989,9 @@
 
     probed.clear();                // ручной обход — единственный способ перечитать строки
 
-    const rows = [...document.querySelectorAll(HEADER_SEL)].filter((header) => rowNeedsScan(header));
+    const rows = [...document.querySelectorAll(HEADER_SEL)].filter((header) => rowNeedsScan(header, true));
     if (!rows.length) {
-      showToast('Все избранные категории уже в кэше');
+      showToast('На этой странице нет избранных категорий');
       return;
     }
 
@@ -1651,7 +2002,7 @@
 
     try {
       for (let i = 0; i < rows.length; i++) {
-        if (await scanRow(rows[i])) scanned++;
+        if (await scanRow(rows[i], true)) scanned++;
         if (i % 10 === 0) showToast(`Обход: ${i + 1} из ${rows.length}`);
         await sleep(120);
       }
@@ -1665,6 +2016,24 @@
     apply();
   }
 
+  /**
+   * У игры несколько кампаний в кэше — одна строка «Все кампании» может
+   * содержать их все. Такую строку читаем сразу, не дожидаясь прокрутки:
+   * иначе до первого замера счётчик покажет только первую кампанию.
+   */
+  function ambiguousRow(header) {
+    if (!stats || !stats.campaigns) return false;
+    const gameId = gameIdFromImg(header.querySelector('img[src*="/ttv-boxart/"]'));
+    if (!gameId) return false;
+
+    let count = 0;
+    for (const campaign of Object.values(stats.campaigns)) {
+      if (campaign.row || campaign.gameId !== gameId || !campaign.total) continue;
+      if (++count > 1) return true;
+    }
+    return false;
+  }
+
   /** Подписываемся на строки и сразу ставим в очередь те, что на экране. */
   function scheduleScanAll() {
     if (!onDropsPage() || document.querySelector(CAMPAIGN_SEL)) return;
@@ -1672,64 +2041,122 @@
     observeRows();
 
     // страховка на случай, если IntersectionObserver ещё не сработал
-    for (const header of [...document.querySelectorAll(HEADER_SEL)].filter(nearViewport)) {
+    for (const header of document.querySelectorAll(HEADER_SEL)) {
+      if (!nearViewport(header) && !ambiguousRow(header)) continue;
       if (rowNeedsScan(header)) enqueueRow(header);
     }
   }
 
-  /** Список «Получено» тоже листается: храним максимум по каждому названию. */
+  /** Список «Получено» тоже листается: храним максимум по каждому ключу. */
   function mergeClaimed(fresh) {
-    const base = Object.assign({}, (stats && stats.claimed) || {});
+    const base = {};
+    const previous = (stats && stats.claimed) || {};
+    // старые записи без префикса — сопоставление только по имени, оно давало
+    // ложные срабатывания; выбрасываем, список «Получено» перечитается
+    for (const key of Object.keys(previous)) {
+      if (isClaimedKey(key)) base[key] = previous[key];
+    }
+
     for (const key of Object.keys(fresh || {})) {
+      if (!isClaimedKey(key)) continue;
       base[key] = Math.max(base[key] || 0, fresh[key] || 0);
     }
     return base;
   }
 
   /**
-   * Отпечаток кэша без времени: у каждой кампании есть свой at, и с ним любой
-   * проход выглядит новым — storage.set срабатывал на каждый apply, а его
-   * onChanged снова вызывал apply (вечный цикл на странице инвентаря).
+   * Отпечаток кэша без времени и без зависимости от порядка ключей/наград.
+   * У каждой кампании есть свой at, а порядок полей после storage/React может
+   * отличаться; с обычным JSON.stringify любой проход выглядел новым,
+   * storage.set срабатывал на каждый apply, а его onChanged снова вызывал
+   * apply (вечный цикл на странице инвентаря).
    */
-  function withoutAt(campaigns) {
-    const out = {};
-    for (const key of Object.keys(campaigns || {})) {
-      const copy = Object.assign({}, campaigns[key]);
-      delete copy.at;
-      out[key] = copy;
+  function statsFingerprint(campaigns, claimed, claimedComplete) {
+    const cleanCampaigns = {};
+    for (const key of Object.keys(campaigns || {}).sort()) {
+      const item = campaigns[key] || {};
+      const copy = {};
+      for (const field of Object.keys(item).sort()) {
+        if (field === 'at' || field === 'names' || field === 'srcs') continue;
+        copy[field] = item[field];
+      }
+
+      // имя и картинка — пара; сортируем пары, а не массивы по отдельности
+      if (Array.isArray(item.names)) {
+        const srcs = Array.isArray(item.srcs) ? item.srcs : [];
+        copy.rewards = item.names
+          .map((name, index) => norm(name) + '\u0001' + (srcs[index] || ''))
+          .sort();
+      }
+      cleanCampaigns[key] = copy;
     }
-    return out;
+
+    const cleanClaimed = {};
+    for (const key of Object.keys(claimed || {}).sort()) {
+      cleanClaimed[key] = claimed[key];
+    }
+
+    return JSON.stringify({
+      campaigns: cleanCampaigns,
+      claimed: cleanClaimed,
+      claimedComplete: !!claimedComplete
+    });
   }
 
   /** Сохраняем статистику только когда она реально изменилась. */
-  function saveStats(campaigns, claimed) {
+  function saveStats(campaigns, claimed, claimedComplete) {
     const games = deriveGames(campaigns);
-    const payload = { at: Date.now(), games, campaigns, claimed: claimed || (stats && stats.claimed) || {} };
+    const complete = claimedComplete != null
+      ? !!claimedComplete
+      : !!(stats && stats.claimedComplete);
+    const payload = {
+      at: Date.now(),
+      games,
+      campaigns,
+      claimed: claimed || (stats && stats.claimed) || {},
+      claimedComplete: complete
+    };
     stats = payload;
 
     // время меняется всегда, поэтому сравниваем только данные
-    const snapshot = JSON.stringify({ campaigns: withoutAt(campaigns), claimed: payload.claimed });
+    const snapshot = statsFingerprint(campaigns, payload.claimed, complete);
     if (snapshot === statsSaved) return;
     statsSaved = snapshot;
     storage.set(STATS_KEY, payload);
   }
 
   /* ------------------------------------------------------------
-     Инвентарь пагинируется («Загрузить еще»), поэтому в кэш попадает
-     только первая страница. Один раз за визит догружаем остальные,
-     чтобы счётчики были по всем играм, а не по первым пяти.
+     Блок «Получено» пагинируется: сначала видны только первые
+     карточки, дальше — кнопка «Загрузить еще». Один раз за визит
+     дочитываем его целиком, иначе награды со второй страницы
+     выглядят неполученными.
      ------------------------------------------------------------ */
-  const LOAD_MORE_RE = /загрузить\s*ещ|load\s*more|show\s*more/i;
-  const MAX_EXPAND_CLICKS = 8;
+  const LOAD_MORE_RE = /^(загрузить\s*ещ|load\s*more)/i;
+  const CLAIMED_TITLE_RE = /^получено$/i;
+  const MAX_EXPAND_CLICKS = 30;
 
   let expandTried = false;
   let expanding = false;
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  /** Кнопка «Загрузить еще» — ищем по тексту, а не по хэшам классов. */
-  function loadMoreButton() {
-    const candidates = [...document.querySelectorAll('button, a, [role="button"]')];
+  /** Контейнер списка «Получено»: ближайший предок заголовка с карточками. */
+  function claimedSection() {
+    const heading = [...document.querySelectorAll('h1, h2, h3, h4, h5, h6')]
+      .find((el) => CLAIMED_TITLE_RE.test(norm(el.textContent)));
+    if (!heading) return null;
+
+    let node = heading;
+    for (let i = 0; i < 8 && node; i++, node = node.parentElement) {
+      if (node.querySelector('img.inventory-drop-image')) return node;
+    }
+    return heading.parentElement;
+  }
+
+  /** Кнопка «Загрузить еще» внутри блока «Получено». */
+  function loadMoreButton(root) {
+    const scope = root || document;
+    const candidates = [...scope.querySelectorAll('button, a, [role="button"]')];
     for (const el of candidates) {
       const text = norm(el.textContent);
       if (!text || text.length > 40) continue;
@@ -1740,37 +2167,117 @@
     return null;
   }
 
+  function claimedCount(section) {
+    const box = section || claimedSection();
+    return box ? box.querySelectorAll('img.inventory-drop-image').length : 0;
+  }
+
   async function expandInventory() {
     if (expanding || expandTried) return;
     if (!document.querySelector(CAMPAIGN_SEL)) return;   // это не инвентарь
+    if (stats && stats.claimedComplete) return;          // уже дочитали раньше
+    if (!claimedSection()) return;                       // блок ещё не отрисован
 
     expanding = true;
     expandTried = true;
 
-    const before = document.querySelectorAll(CAMPAIGN_SEL).length;
     let clicks = 0;
+    let complete = false;
+    let section = claimedSection();
+    const startY = window.scrollY;
 
     try {
-      while (clicks < MAX_EXPAND_CLICKS) {
-        const button = loadMoreButton();
-        if (!button) break;
-
-        button.click();
-        clicks++;
+      if (section) {
+        // прокрутка к «Получено» включает ленивую подгрузку первых карточек
+        section.scrollIntoView({ block: 'start' });
         await sleep(900);
+        for (let i = 0; i < 2; i++) {
+          window.scrollBy(0, 600);
+          await sleep(300);
+        }
+        section = claimedSection() || section;
+        await sleep(400);
 
-        if (!loadMoreButton()) break;
+        const refreshSection = () => {
+          section = claimedSection() || section;
+        };
+
+        const waitForGrowth = async (before, timeout) => {
+          const until = Date.now() + timeout;
+          while (Date.now() < until) {
+            await sleep(250);
+            refreshSection();
+            if (claimedCount(section) > before) return true;
+          }
+          return false;
+        };
+
+        // кнопка появляется не сразу после прокрутки и после каждой
+        // порции карточек: без ожидания цикл обрывается на середине
+        const waitForButton = async (timeout) => {
+          const until = Date.now() + timeout;
+          while (Date.now() < until) {
+            refreshSection();
+            const button = loadMoreButton(section);
+            if (button) return button;
+            await sleep(300);
+          }
+          return null;
+        };
+
+        let button = await waitForButton(10000);
+        const hadButton = !!button;
+        let lastGrew = false;
+
+        while (button && clicks < MAX_EXPAND_CLICKS) {
+          button.scrollIntoView({ block: 'center' });
+          button.click();
+          clicks++;
+
+          // Twitch иногда отвечает с задержкой: ждём до 12 секунд,
+          // иначе список обрывается на середине и часть наград
+          // выглядит неполученной
+          const before = claimedCount(section);
+          let grew = await waitForGrowth(before, 12000);
+
+          if (!grew && clicks < MAX_EXPAND_CLICKS) {
+            const again = loadMoreButton(section);
+            if (again) {
+              again.click();
+              clicks++;
+              grew = await waitForGrowth(before, 8000);
+            }
+          }
+
+          lastGrew = grew;
+          if (!grew) break;
+          await sleep(700);
+          button = await waitForButton(10000);
+        }
+
+        await sleep(1200);
+        section = claimedSection() || section;
+        // «полный список» только если кнопка исчезла после успешной догрузки:
+        // при ошибке проверки целостности Twitch она пропадает, но данные
+        // остаются обрезанными
+        complete = !loadMoreButton(section) && (!hadButton || lastGrew);
       }
     } catch (e) {
-      log('догрузка инвентаря не удалась', e);
+      log('догрузка «Получено» не удалась', e);
+    } finally {
+      window.scrollTo(0, startY);
     }
 
     expanding = false;
 
-    const after = document.querySelectorAll(CAMPAIGN_SEL).length;
-    log(`догрузка инвентаря: нажатий ${clicks}, кампаний ${before} → ${after}`);
+    const claimed = mergeClaimed(claimedFromPage(document));
+    const merged = mergeCampaigns({}, claimed);
+    saveStats(merged, claimed, complete);
+    log(`«Получено»: ${Object.keys(claimed).length} ключей, нажатий ${clicks}, ` +
+      `полный список: ${complete ? 'да' : 'нет'}`);
 
-    if (after !== before) apply();
+    // даже если кампаний столько же, счётчики могли измениться
+    apply();
   }
 
   /**
@@ -1896,9 +2403,19 @@
     // интересует только инвентарь: под «drops» подходят и дашборд, и кампании
     if (!/inventory/i.test(String(payload.op))) return;
 
+    // «Получено» берём прямо из ответа: список в DOM может быть обрезан
+    // пагинацией или проверкой целостности Twitch
+    const fromGql = claimedFromInventoryJson(payload.data);
+    const freshClaimed = Object.keys(fromGql).length ? mergeClaimed(fromGql) : null;
+    if (freshClaimed) {
+      saveStats((stats && stats.campaigns) || {}, freshClaimed, stats && stats.claimedComplete);
+      log(`GraphQL: «Получено» ${Object.keys(freshClaimed).length} ключей`);
+      if (onDropsPage()) apply();
+    }
+
     const mapped = mapInventoryJson(payload.data);
     if (!mapped) {
-      log('GraphQL: ответ не распознан', payload.op);
+      if (!freshClaimed) log('GraphQL: ответ не распознан', payload.op);
       return;
     }
 
@@ -1912,14 +2429,15 @@
     if (!document.querySelector(CAMPAIGN_SEL)) return;
 
     // на инвентаре есть DOM — сверяем и только потом доверяем схеме
-    const dom = measureAll(document.querySelectorAll(CAMPAIGN_SEL), claimedFromPage(document));
+    const claimed = mergeClaimed(claimedFromPage(document));
+    const dom = measureAll(document.querySelectorAll(CAMPAIGN_SEL), claimed);
     const rate = crossCheck(dom.campaigns, mapped.campaigns);
     log(`GraphQL: ${payload.op}, кампаний ${Object.keys(mapped.campaigns).length}, совпадение с DOM ${Math.round(rate * 100)}%`);
 
     if (rate >= 0.7) {
       gqlOk = true;
       storage.set(GQL_OK_KEY, true);
-      saveStats(mergeCampaigns(mapped.campaigns, stats && stats.claimed), stats && stats.claimed);
+      saveStats(mergeCampaigns(mapped.campaigns, claimed), claimed, stats && stats.claimedComplete);
     }
   }
 
@@ -1945,7 +2463,8 @@
       const mapped = mapInventoryJson(await res.json());
       if (!mapped) return false;
 
-      saveStats(mergeCampaigns(mapped.campaigns, stats && stats.claimed), stats && stats.claimed);
+      saveStats(mergeCampaigns(mapped.campaigns, stats && stats.claimed),
+        stats && stats.claimed, stats && stats.claimedComplete);
       apply();
       log('GraphQL: статистика получена напрямую');
       return true;
@@ -1961,11 +2480,15 @@
    * потом — разбор HTML инвентаря.
    */
   async function loadStatsFromInventoryPage() {
-    if (stats && stats.games && stats.campaigns) return;
+    const hasStats = !!(stats && stats.games && stats.campaigns);
+    const hasClaimed = !!(stats && Object.keys(stats.claimed || {}).some(isClaimedKey));
+    if (hasStats && hasClaimed) return;
     if (document.querySelector(CAMPAIGN_SEL)) return;      // мы уже на инвентаре
     if (!document.querySelector(HEADER_SEL)) return;       // это не список дропов
 
-    if (await loadStatsViaGql()) return;
+    if (await loadStatsViaGql()) {
+      if (hasClaimed) return;
+    }
 
     try {
       const res = await fetch('/drops/inventory', { credentials: 'include' });
@@ -1978,9 +2501,12 @@
       const infos = doc.querySelectorAll(CAMPAIGN_SEL);
       if (!infos.length) return;
 
-      const claimed = claimedFromPage(doc);
-      const measured = measureAll(infos, claimed);
-      saveStats(mergeCampaigns(measured.campaigns, claimed), claimed);
+      const claimed = mergeClaimed(claimedFromPage(doc));
+      if (!Object.keys(claimed).length && hasClaimed) return;
+
+      const measured = hasStats ? null : measureAll(infos, claimed);
+      saveStats(mergeCampaigns(measured ? measured.campaigns : {}, claimed),
+        claimed, stats && stats.claimedComplete);
       apply();
       log('статистика подтянута со страницы инвентаря');
     } catch (e) {
@@ -2051,6 +2577,24 @@
     return pill;
   }
 
+  /** Заголовок кампании, которой принадлежит башня наград. */
+  function campaignTitleOfTower(tower, scope, header) {
+    const labels = /^(награды|как получить drop|подключение|прогресс и получение|\(обязательно\))$/;
+    let node = tower.parentElement;
+
+    // поднимаемся до блока ровно с одной башней — это блок одной кампании;
+    // в нём берём первый заголовок перед наградой, пропуская служебные
+    for (let i = 0; node && node !== scope && i < 10; i++, node = node.parentElement) {
+      if (node.querySelectorAll('.tw-tower').length !== 1) continue;
+      const before = [...node.querySelectorAll('strong')].filter((el) =>
+        !header.contains(el) && !el.closest('.tw-tower') && rawText(el)
+        && !labels.test(norm(rawText(el)))
+        && (el.compareDocumentPosition(tower) & Node.DOCUMENT_POSITION_FOLLOWING));
+      if (before.length) return before[0];
+    }
+    return null;
+  }
+
   /**
    * Счётчик рядом с названием самой кампании внутри раскрытой карточки.
    * Если удалось посчитать по блоку «Получено» — подписываем заголовок
@@ -2061,6 +2605,33 @@
     if (!scope || scope === header) return;
 
     if (override) {
+      const towers = [...scope.querySelectorAll('.tw-tower')];
+
+      // под одной шапкой несколько кампаний — подписываем каждую отдельно,
+      // а не вешаем общий «4/5» на первую
+      if (towers.length > 1) {
+        let painted = 0;
+        for (const tower of towers) {
+          const title = campaignTitleOfTower(tower, scope, header);
+          if (!title) continue;
+
+          const entries = rewardEntriesInTower(tower, header);
+          if (!entries.length) continue;
+
+          const byClaim = stats && stats.claimed
+            ? earnedFromClaimed(entries, stats.claimed)
+            : null;
+          if (byClaim == null) continue;
+
+          const pill = ensurePill(title, CAMP_PILL_CLASS, '0 0 0 8px');
+          paintPill(pill, entries.length, byClaim,
+            `Собрано ${byClaim} из ${entries.length} наград кампании`);
+          painted++;
+        }
+        if (painted) return;
+      }
+
+      // одна кампания (возможно, несколько башен) — общий счётчик
       const title = scope.querySelector('strong');
       if (title && !header.contains(title)) {
         const pill = ensurePill(title, CAMP_PILL_CLASS, '0 0 0 8px');
@@ -2319,8 +2890,13 @@
           // инвентарь обновил статистику в другой вкладке
           const next = changes[STATS_KEY].newValue;
           if (next && next.games) {
+            const nextSaved = statsFingerprint(next.campaigns, next.claimed, next.claimedComplete);
+            // эхо собственной записи: данные те же — пересчитывать страницу
+            // незачем. Иначе storage.set -> onChanged -> apply зацикливается
+            // на инвентаре (сотни apply в секунду).
+            if (nextSaved === statsSaved) return;
             stats = next;
-            statsSaved = JSON.stringify({ campaigns: withoutAt(next.campaigns || {}), claimed: next.claimed || {} });
+            statsSaved = nextSaved;
             apply();
           }
         }
@@ -2354,13 +2930,19 @@
         if (campaign && campaign.fp) campaigns[key] = campaign;
       }
 
+      const claimed = {};
+      for (const key of Object.keys(savedStats.claimed || {})) {
+        if (isClaimedKey(key)) claimed[key] = savedStats.claimed[key];
+      }
+
       stats = {
         at: savedStats.at,
         campaigns,
         games: deriveGames(campaigns),
-        claimed: savedStats.claimed || {}
+        claimed,
+        claimedComplete: !!savedStats.claimedComplete
       };
-      statsSaved = JSON.stringify({ campaigns: withoutAt(stats.campaigns), claimed: stats.claimed });
+      statsSaved = statsFingerprint(stats.campaigns, stats.claimed, stats.claimedComplete);
     }
 
     gqlOk = !!(await storage.get(GQL_OK_KEY));
