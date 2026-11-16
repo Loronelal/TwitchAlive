@@ -1,4 +1,12 @@
 ﻿// ============================================================
+// Модуль «Twitch Keep Alive»: уведомления, авто-воспроизведение,
+// авто-клик «Получить» и статус стрима.
+//
+// Подмена видимости вкладки живёт в keepalive.js (MAIN-мир): из
+// изолированного мира content script'а страница её не видит.
+// ============================================================
+
+// ============================================================
 // 1. ЗАПРАШИВАЕМ РАЗРЕШЕНИЕ НА УВЕДОМЛЕНИЯ
 // ============================================================
 if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
@@ -6,66 +14,7 @@ if (Notification.permission !== 'granted' && Notification.permission !== 'denied
 }
 
 // ============================================================
-// 2. БЛОКИРУЕМ СОБЫТИЯ ПОТЕРИ ФОКУСА И ВИДИМОСТИ
-// ============================================================
-document.addEventListener('visibilitychange', (e) => e.stopImmediatePropagation(), true);
-document.addEventListener('webkitvisibilitychange', (e) => e.stopImmediatePropagation(), true);
-window.addEventListener('blur', (e) => e.stopImmediatePropagation(), true);
-window.addEventListener('focus', (e) => e.stopImmediatePropagation(), true);
-
-// ============================================================
-// 3. ПОДДЕЛЫВАЕМ СВОЙСТВА ДОКУМЕНТА — ВСЕГДА АКТИВНАЯ ВКЛАДКА
-// ============================================================
-Object.defineProperty(document, 'hidden', { get: () => false, configurable: true });
-Object.defineProperty(document, 'visibilityState', { get: () => 'visible', configurable: true });
-
-// ============================================================
-// 4. БЛОКИРУЕМ ПРОГРАММНУЮ ПАУЗУ (ЧЕРЕЗ ПРОТОТИП)
-// ============================================================
-const originalPause = HTMLMediaElement.prototype.pause;
-HTMLMediaElement.prototype.pause = function () {
-    if (window.location.hostname.includes('twitch.tv')) {
-        console.log('🚫 Twitch Keep Alive: программная пауза заблокирована');
-        return;
-    }
-    return originalPause.apply(this, arguments);
-};
-
-// ============================================================
-// 5. ЗАЩИТА ОТ ТАЙМЕРОВ
-// ============================================================
-const originalSetTimeout = window.setTimeout;
-const originalSetInterval = window.setInterval;
-
-window.setTimeout = function (handler, timeout, ...args) {
-    if (timeout > 1000) timeout = 1000;
-    return originalSetTimeout.call(this, handler, timeout, ...args);
-};
-
-window.setInterval = function (handler, interval, ...args) {
-    if (interval > 1000) interval = 1000;
-    return originalSetInterval.call(this, handler, interval, ...args);
-};
-
-// ============================================================
-// 6. БЛОКИРУЕМ МЕЖВКЛАДОЧНУЮ СИНХРОНИЗАЦИЮ
-// ============================================================
-const originalBroadcastChannel = window.BroadcastChannel;
-window.BroadcastChannel = function (name) {
-    if (name && name.includes('twitch')) {
-        console.log('🚫 Twitch Keep Alive: BroadcastChannel заблокирован');
-        return {
-            postMessage: () => { },
-            close: () => { },
-            addEventListener: () => { },
-            removeEventListener: () => { },
-        };
-    }
-    return new originalBroadcastChannel(name);
-};
-
-// ============================================================
-// 7. ПРИНУДИТЕЛЬНОЕ ВОССТАНОВЛЕНИЕ ВОСПРОИЗВЕДЕНИЯ
+// 2. ПРИНУДИТЕЛЬНОЕ ВОССТАНОВЛЕНИЕ ВОСПРОИЗВЕДЕНИЯ
 // ============================================================
 function ensurePlaying() {
     const videos = document.querySelectorAll('video');
@@ -85,7 +34,7 @@ function ensurePlaying() {
 setInterval(ensurePlaying, 2000);
 
 // ============================================================
-// 8. АВТОМАТИЧЕСКОЕ НАЖАТИЕ НА КНОПКИ "ПОЛУЧИТЬ" И "ПОЛУЧИТЬ БОНУС"
+// 3. АВТОМАТИЧЕСКОЕ НАЖАТИЕ НА КНОПКИ "ПОЛУЧИТЬ" И "ПОЛУЧИТЬ БОНУС"
 // ============================================================
 function collectRewards() {
     // Кнопка с текстом "Получить" (для дропов)
@@ -108,7 +57,7 @@ function collectRewards() {
 setInterval(collectRewards, 10000);
 
 // ============================================================
-// 9. ОТСЛЕЖИВАНИЕ ОКОНЧАНИЯ СТРИМА И СМЕНЫ ИГРЫ
+// 4. ОТСЛЕЖИВАНИЕ ОКОНЧАНИЯ СТРИМА И СМЕНЫ ИГРЫ
 // ============================================================
 let wasOnline = false;
 let notifiedOffline = false;
