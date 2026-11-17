@@ -74,6 +74,11 @@ const BONUS_SELECTOR = [
 
 let lastBonusClick = 0;
 
+// Один и тот же бонус приходит двумя путями: клик по кнопке и ответ GraphQL.
+// Держим окно, чтобы не записать его дважды.
+const lastBonusAt = {};
+const BONUS_DEDUPE_MS = 3000;
+
 /** Живой ли контекст: после ⟳ старые вкладки теряют chrome API. */
 function extensionAlive() {
     try {
@@ -95,6 +100,9 @@ function channelName() {
 
 function recordBonus(channel) {
     if (!extensionAlive()) return;
+    const now = Date.now();
+    if (lastBonusAt[channel] && now - lastBonusAt[channel] < BONUS_DEDUPE_MS) return;
+    lastBonusAt[channel] = now;
     chrome.storage.local.get({ bonusStats: { channels: {} } }, (data) => {
         const stats = data.bonusStats && data.bonusStats.channels ? data.bonusStats : { channels: {} };
         const row = stats.channels[channel] || { count: 0, last: 0 };
@@ -119,6 +127,15 @@ document.addEventListener('click', (event) => {
     if (!byLabel && !icon) return;
     recordBonus(channelName());
 }, true);
+
+// Сеть подтвердила получение бонуса (ClaimCommunityPoints): страхует случай,
+// когда кнопка не поймалась ни по подписи, ни по иконке.
+window.addEventListener('message', (event) => {
+    if (event.source !== window) return;
+    const claim = event.data && event.data.__takBonusClaim;
+    if (!claim || !claim.ok) return;
+    recordBonus(channelName());
+});
 
 function collectRewards() {
     // Старый скрипт после обновления расширения: молчим и гасим таймеры.

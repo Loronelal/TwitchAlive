@@ -48,6 +48,24 @@
 
   const interesting = (descs) => (descs || []).filter((desc) => /drops|inventory/i.test(desc.op));
 
+  /** Получение бонуса канала: ClaimCommunityPoints. */
+  const isClaim = (desc) => /claimcommunitypoints/i.test(desc.op);
+
+  const notifyClaim = (ok) => {
+    try {
+      window.postMessage({ __takBonusClaim: { ok } }, '*');
+    } catch (e) { /* молча */ }
+  };
+
+  /** Ответ на ClaimCommunityPoints: error в payload означает неудачу. */
+  const claimSucceeded = (json, desc) => {
+    const list = Array.isArray(json) ? json : [json];
+    const data = Array.isArray(json) ? list[desc.index] : json;
+    if (!data || (data.errors && data.errors.length)) return false;
+    const payload = data.data && data.data.claimCommunityPoints;
+    return !!payload && !payload.error;
+  };
+
   /** Разложить ответ пакета по описаниям запросов. */
   const reply = (json, wanted) => {
     const list = Array.isArray(json) ? json : [json];
@@ -67,13 +85,20 @@
         const url = typeof input === 'string' ? input : (input && input.url) || '';
         const method = (init && init.method) || (input && input.method) || 'GET';
         if (url.indexOf(GQL) !== -1 && String(method).toUpperCase() === 'POST' && init && init.body) {
-          const wanted = interesting(describe(init.body));
-          if (wanted.length) {
+          const descs = describe(init.body) || [];
+          const wanted = interesting(descs);
+          const claims = descs.filter(isClaim);
+          if (wanted.length || claims.length) {
             result
               .then((res) => {
                 try {
                   res.clone().json()
-                    .then((json) => reply(json, wanted))
+                    .then((json) => {
+                      reply(json, wanted);
+                      for (const desc of claims) {
+                        if (claimSucceeded(json, desc)) notifyClaim(true);
+                      }
+                    })
                     .catch(() => {});
                 } catch (e) { /* молча */ }
               })
@@ -101,11 +126,17 @@
     XMLHttpRequest.prototype.send = function (body) {
       try {
         if (this.__takUrl && String(this.__takUrl).indexOf(GQL) !== -1) {
-          const wanted = interesting(describe(body));
-          if (wanted.length) {
+          const descs = describe(body) || [];
+          const wanted = interesting(descs);
+          const claims = descs.filter(isClaim);
+          if (wanted.length || claims.length) {
             this.addEventListener('load', () => {
               try {
-                reply(JSON.parse(this.responseText), wanted);
+                const json = JSON.parse(this.responseText);
+                reply(json, wanted);
+                for (const desc of claims) {
+                  if (claimSucceeded(json, desc)) notifyClaim(true);
+                }
               } catch (e) { /* молча */ }
             });
           }
