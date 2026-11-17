@@ -11,6 +11,7 @@
 // 1. НАСТРОЙКИ ИЗ POPUP
 // ============================================================
 let settings = { ...TAK_DEFAULTS };
+const timers = [];
 
 function applySettings(value) {
     settings = { ...TAK_DEFAULTS, ...(value || {}) };
@@ -56,7 +57,7 @@ function ensurePlaying() {
         console.log('🔄 Twitch Keep Alive: нажата кнопка воспроизведения');
     }
 }
-setInterval(ensurePlaying, 2000);
+timers.push(setInterval(ensurePlaying, 2000));
 
 // ============================================================
 // 3. АВТОМАТИЧЕСКОЕ НАЖАТИЕ НА КНОПКИ "ПОЛУЧИТЬ" И "ПОЛУЧИТЬ БОНУС"
@@ -75,7 +76,17 @@ let lastBonusClick = 0;
 
 /** Живой ли контекст: после ⟳ старые вкладки теряют chrome API. */
 function extensionAlive() {
-    return !!(chrome.runtime && chrome.runtime.id);
+    try {
+        return !!(chrome.runtime && chrome.runtime.id);
+    } catch (e) {
+        // В мёртвом контексте обращение к chrome.runtime само бросает исключение.
+        return false;
+    }
+}
+
+// Таймеры гасим, если контекст умер: иначе они продолжают тикать вхолостую.
+function stopTimers() {
+    while (timers.length) clearInterval(timers.pop());
 }
 
 function channelName() {
@@ -110,8 +121,11 @@ document.addEventListener('click', (event) => {
 }, true);
 
 function collectRewards() {
-    // Старый скрипт после обновления расширения: молчим, а не сыпем ошибками.
-    if (!extensionAlive()) return;
+    // Старый скрипт после обновления расширения: молчим и гасим таймеры.
+    if (!extensionAlive()) {
+        stopTimers();
+        return;
+    }
 
     // «Получить»/«Получить сейчас» — только на страницах дропов и только
     // внутри строки награды, чтобы не нажать чужую кнопку на других страницах.
@@ -144,7 +158,7 @@ function collectRewards() {
         }
     }
 }
-setInterval(collectRewards, 10000);
+timers.push(setInterval(collectRewards, 10000));
 
 // ============================================================
 // 4. ОТСЛЕЖИВАНИЕ ОКОНЧАНИЯ СТРИМА И СМЕНЫ ИГРЫ
@@ -217,6 +231,6 @@ function checkStreamStatus() {
 }
 
 // Проверяем состояние каждые 30 секунд
-setInterval(checkStreamStatus, 30000);
+timers.push(setInterval(checkStreamStatus, 30000));
 
 console.log('✅ Twitch Keep Alive: расширение успешно загружено и работает!');
