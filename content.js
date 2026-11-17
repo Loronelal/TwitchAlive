@@ -62,30 +62,51 @@ setInterval(ensurePlaying, 2000);
 // 3. АВТОМАТИЧЕСКОЕ НАЖАТИЕ НА КНОПКИ "ПОЛУЧИТЬ" И "ПОЛУЧИТЬ БОНУС"
 // ============================================================
 const DROP_LABELS = /^(получить|получить сейчас|claim|claim now)$/i;
+const BONUS_LABEL = /^(получить бонус|забрать бонус|claim bonus|get bonus)$/i;
 const BONUS_SELECTOR = [
     'button[aria-label="Получить бонус"]:not([disabled])',
+    'button[aria-label="Забрать бонус"]:not([disabled])',
     'button[aria-label="Claim Bonus" i]:not([disabled])',
     'button[aria-label="Get Bonus" i]:not([disabled])'
 ].join(', ');
 
 let lastBonusClick = 0;
 
+/** Живой ли контекст: после ⟳ старые вкладки теряют chrome API. */
+function extensionAlive() {
+    return !!(chrome.runtime && chrome.runtime.id);
+}
+
 function channelName() {
     return (window.location.pathname.split('/').filter(Boolean)[0] || 'unknown').toLowerCase();
 }
 
 function recordBonus(channel) {
+    if (!extensionAlive()) return;
     chrome.storage.local.get({ bonusStats: { channels: {} } }, (data) => {
         const stats = data.bonusStats && data.bonusStats.channels ? data.bonusStats : { channels: {} };
         const row = stats.channels[channel] || { count: 0, last: 0 };
         row.count += 1;
         row.last = Date.now();
         stats.channels[channel] = row;
-        chrome.storage.local.set({ bonusStats: stats });
+        chrome.storage.local.set({ bonusStats: stats }, () => {
+            console.log(`📊 Twitch Keep Alive: бонус учтён (${channel})`);
+        });
     });
 }
 
+// Любой собранный бонус — и автоматический, и нажатый вручную — идёт в статистику.
+document.addEventListener('click', (event) => {
+    const el = event.target && event.target.closest ? event.target.closest('[aria-label]') : null;
+    if (!el) return;
+    if (!BONUS_LABEL.test(el.getAttribute('aria-label') || '')) return;
+    recordBonus(channelName());
+}, true);
+
 function collectRewards() {
+    // Старый скрипт после обновления расширения: молчим, а не сыпем ошибками.
+    if (!extensionAlive()) return;
+
     // «Получить»/«Получить сейчас» — только на страницах дропов и только
     // внутри строки награды, чтобы не нажать чужую кнопку на других страницах.
     if (settings.autoDrops && window.location.pathname.startsWith('/drops')) {
@@ -111,7 +132,6 @@ function collectRewards() {
         if (bonusButton) {
             lastBonusClick = Date.now();
             bonusButton.click();
-            recordBonus(channelName());
             console.log('🎁 Twitch Keep Alive: нажата кнопка "Получить бонус" (бонусы канала)');
         }
     }
