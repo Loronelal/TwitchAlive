@@ -1,16 +1,16 @@
 # Graph Report - TwitchAlive  (2026-11-17)
 
 ## Corpus Check
-- 9 files · ~24,676 words
+- 9 files · ~24,899 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 150 nodes · 374 edges · 13 communities (9 shown, 4 thin omitted)
+- 151 nodes · 375 edges · 13 communities (9 shown, 4 thin omitted)
 - Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 17 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `40998f8d`
+- Built from commit: `28a962c5`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -41,14 +41,14 @@
 ## Surprising Connections (you probably didn't know these)
 - `init()` --indirect_call--> `onGqlPayload()`  [INFERRED]
   favorites.js → favorites.js  _Bridges community 1 → community 3_
-- `claimedFromInventoryJson()` --calls--> `addClaimedTo()`  [EXTRACTED]
-  favorites.js → favorites.js  _Bridges community 5 → community 3_
 - `applySafe()` --calls--> `apply()`  [EXTRACTED]
   favorites.js → favorites.js  _Bridges community 0 → community 1_
 - `renderCampaignPills()` --calls--> `ensurePill()`  [EXTRACTED]
   favorites.js → favorites.js  _Bridges community 0 → community 5_
-- `apply()` --calls--> `renderCampaignPills()`  [EXTRACTED]
-  favorites.js → favorites.js  _Bridges community 5 → community 1_
+- `gameOf()` --calls--> `rawText()`  [EXTRACTED]
+  favorites.js → favorites.js  _Bridges community 1 → community 5_
+- `rowNeedsScan()` --calls--> `gameOf()`  [EXTRACTED]
+  favorites.js → favorites.js  _Bridges community 1 → community 2_
 
 ## Import Cycles
 - None detected.
@@ -56,20 +56,20 @@
 ## Communities (13 total, 4 thin omitted)
 
 ### Community 0 - "favorites.js"
-Cohesion: 0.14
-Nodes (21): applySafe(), campaignByEnds(), endsFromText(), ensurePill(), ensureStar(), findTablist(), fixClippedStar(), gameOf() (+13 more)
+Cohesion: 0.13
+Nodes (22): applySafe(), campaignByEnds(), endsFromHeader(), endsFromText(), ensurePill(), findTablist(), fixClippedStar(), hashRewards() (+14 more)
 
 ### Community 1 - "apply"
-Cohesion: 0.18
-Nodes (25): apply(), applyStarState(), buildControl(), buildDoneControl(), clearFavorites(), closePanel(), init(), onDocMouseDown() (+17 more)
+Cohesion: 0.16
+Nodes (28): apply(), applyStarState(), buildControl(), buildDoneControl(), clearFavorites(), closePanel(), ensureStar(), gameOf() (+20 more)
 
 ### Community 2 - "scanRow"
-Cohesion: 0.18
-Nodes (19): ambiguousRow(), detailsNames(), endsFromHeader(), enqueueRow(), ensureRowObserver(), gameIdFromImg(), nearViewport(), observeRows() (+11 more)
+Cohesion: 0.20
+Nodes (17): ambiguousRow(), detailsNames(), enqueueRow(), ensureRowObserver(), gameIdFromImg(), nearViewport(), observeRows(), panelOf() (+9 more)
 
 ### Community 3 - "applyInventory"
-Cohesion: 0.15
-Nodes (21): applyInventory(), campaignBadge(), campaignEntries(), claimedCount(), claimedFromInventoryJson(), claimedSection(), crossCheck(), deriveGames() (+13 more)
+Cohesion: 0.17
+Nodes (19): applyInventory(), campaignBadge(), campaignEntries(), claimedCount(), claimedFromInventoryJson(), claimedSection(), crossCheck(), deriveGames() (+11 more)
 
 ### Community 4 - "manifest.json"
 Cohesion: 0.18
@@ -84,8 +84,8 @@ Cohesion: 0.67
 Nodes (3): main(), OPTIONS, renderStats()
 
 ### Community 8 - "content.js"
-Cohesion: 0.19
-Nodes (7): BONUS_SELECTOR, collectRewards(), extensionAlive(), recordBonus(), settings, stopTimers(), timers
+Cohesion: 0.18
+Nodes (8): BONUS_SELECTOR, collectRewards(), extensionAlive(), lastBonusAt, recordBonus(), settings, stopTimers(), timers
 
 ### Community 73 - "cdp.mjs"
 Cohesion: 0.53
@@ -102,8 +102,8 @@ _Questions this graph is uniquely positioned to answer:_
 - **Are the 3 inferred relationships involving `rawText()` (e.g. with `claimedFromPage()` and `markClaimedRewards()`) actually correct?**
   _`rawText()` has 3 INFERRED edges - model-reasoned connections that need verification._
 - **Should `favorites.js` be split into smaller, more focused modules?**
-  _Cohesion score 0.13666666666666666 - nodes in this community are weakly interconnected._
-- **Why does `rawText()` connect `rawText` to `favorites.js`, `apply`, `scanRow`, `applyInventory`?**
+  _Cohesion score 0.13230769230769232 - nodes in this community are weakly interconnected._
+- **Why does `rawText()` connect `rawText` to `favorites.js`, `apply`?**
   _High betweenness centrality (0.002) - this node is a cross-community bridge._
 - **Are the 2 inferred relationships involving `init()` (e.g. with `favorites.js` and `onGqlPayload()`) actually correct?**
   _`init()` has 2 INFERRED edges - model-reasoned connections that need verification._
