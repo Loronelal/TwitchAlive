@@ -1,17 +1,15 @@
 {
-  "0": "rowNeedsScan",
+  "0": "favorites.js",
   "1": "apply",
-  "2": "applyInventory",
-  "3": "buildControl",
+  "2": "scanRow",
+  "3": "applyInventory",
   "4": "manifest.json",
-  "5": "paintPill",
-  "6": "rawText",
+  "5": "rawText",
+  "6": "popup.js",
   "7": ".send",
   "8": "content.js",
   "9": ".open",
-  "10": "favorites.js",
-  "11": ".pause",
-  "12": "placeStar",
-  "13": "mountControl",
-  "14": "gameOf"
+  "10": "settings.js",
+  "73": "cdp.mjs",
+  "111": "keepalive.js"
 }

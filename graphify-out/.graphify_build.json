@@ -1,1 +1,1 @@
-{"code_only": true}
+{"code_only": true, "excludes": [".chrome-test", ".vs", "dumps/campaigns.html", "dumps/inventory.html"]}
