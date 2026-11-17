@@ -1,8 +1,8 @@
 {
   "content.js": {
-    "mtime": 1794900830.5049887,
-    "seen": 1794900906.824342,
-    "ast_hash": "534ca1a7b1bf8fff6d0228c418ccf156",
+    "mtime": 1794939785.5359368,
+    "seen": 1794939813.730287,
+    "ast_hash": "d81b3b6d6c4b1f007cb6b51094ec114b",
     "semantic_hash": ""
   },
   "favorites.js": {
@@ -12,9 +12,9 @@
     "semantic_hash": ""
   },
   "manifest.json": {
-    "mtime": 1794900838.7619145,
-    "seen": 1794900906.824342,
-    "ast_hash": "ff899220368fe688a752d7e31480d86f",
+    "mtime": 1794939800.796454,
+    "seen": 1794939813.730287,
+    "ast_hash": "8d67bc3580a76853bc3f8be1ba8fa33b",
     "semantic_hash": ""
   },
   "gql-sniffer.js": {
@@ -24,9 +24,9 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1794900838.9239173,
-    "seen": 1794900906.824342,
-    "ast_hash": "3751fd83f8e5a145a82b7701b3f03ecc",
+    "mtime": 1794939797.5617037,
+    "seen": 1794939813.730287,
+    "ast_hash": "85806cffaf59ca99077dcb098aab370f",
     "semantic_hash": ""
   },
   "dev/preview-campaigns.html": {
