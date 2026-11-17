@@ -20,16 +20,21 @@ function applySettings(value) {
 
 chrome.storage.local.get({ settings: TAK_DEFAULTS }, (data) => {
     applySettings(data.settings);
-    if (settings.notifications &&
-        Notification.permission !== 'granted' &&
-        Notification.permission !== 'denied') {
-        Notification.requestPermission();
-    }
 });
 
 chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.settings) applySettings(changes.settings.newValue);
 });
+
+// Chrome показывает запрос уведомлений только после действия пользователя,
+// поэтому просим при первом клике, а не при загрузке страницы.
+function askNotifications() {
+    document.removeEventListener('pointerdown', askNotifications, true);
+    if (settings.notifications && Notification.permission === 'default') {
+        Notification.requestPermission();
+    }
+}
+document.addEventListener('pointerdown', askNotifications, true);
 
 // ============================================================
 // 2. ПРИНУДИТЕЛЬНОЕ ВОССТАНОВЛЕНИЕ ВОСПРОИЗВЕДЕНИЯ
@@ -56,6 +61,13 @@ setInterval(ensurePlaying, 2000);
 // ============================================================
 // 3. АВТОМАТИЧЕСКОЕ НАЖАТИЕ НА КНОПКИ "ПОЛУЧИТЬ" И "ПОЛУЧИТЬ БОНУС"
 // ============================================================
+const DROP_LABELS = /^(получить|получить сейчас|claim|claim now)$/i;
+const BONUS_SELECTOR = [
+    'button[aria-label="Получить бонус"]:not([disabled])',
+    'button[aria-label="Claim Bonus" i]:not([disabled])',
+    'button[aria-label="Get Bonus" i]:not([disabled])'
+].join(', ');
+
 let lastBonusClick = 0;
 
 function channelName() {
@@ -74,22 +86,28 @@ function recordBonus(channel) {
 }
 
 function collectRewards() {
-    // Кнопка с текстом "Получить" (для дропов)
-    if (settings.autoDrops) {
-        const label = document.querySelector('[data-a-target="tw-core-button-label-text"]');
-        if (label && label.textContent.trim() === 'Получить') {
+    // «Получить»/«Получить сейчас» — только на страницах дропов и только
+    // внутри строки награды, чтобы не нажать чужую кнопку на других страницах.
+    if (settings.autoDrops && window.location.pathname.startsWith('/drops')) {
+        const hasTowers = !!document.querySelector('.tw-tower');
+
+        for (const label of document.querySelectorAll('[data-a-target="tw-core-button-label-text"]')) {
+            if (!DROP_LABELS.test(label.textContent.trim())) continue;
+
             const button = label.closest('button, a');
-            if (button && !button.disabled) {
-                button.click();
-                console.log('🎁 Twitch Keep Alive: нажата кнопка "Получить" (дропы)');
-            }
+            if (!button || button.disabled) continue;
+            if (hasTowers && !button.closest('.tw-tower')) continue;
+
+            button.click();
+            console.log(`🎁 Twitch Keep Alive: нажата кнопка "${label.textContent.trim()}" (дропсы)`);
+            break;
         }
     }
 
-    // Кнопка с aria-label="Получить бонус" (для бонусов канала).
+    // Кнопка "Получить бонус" / "Claim Bonus" (бонусы канала).
     // Кулдаун, чтобы один и тот же бонус не считался каждые 10 секунд.
     if (settings.autoBonus && Date.now() - lastBonusClick > 60000) {
-        const bonusButton = document.querySelector('button[aria-label="Получить бонус"]:not([disabled])');
+        const bonusButton = document.querySelector(BONUS_SELECTOR);
         if (bonusButton) {
             lastBonusClick = Date.now();
             bonusButton.click();
