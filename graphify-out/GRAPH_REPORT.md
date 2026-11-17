@@ -1,7 +1,7 @@
 # Graph Report - TwitchAlive  (2026-11-17)
 
 ## Corpus Check
-- 9 files · ~24,532 words
+- 9 files · ~24,603 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `217b2f48`
+- Built from commit: `3ef26b26`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -43,12 +43,12 @@
   favorites.js → favorites.js  _Bridges community 1 → community 3_
 - `applySafe()` --calls--> `apply()`  [EXTRACTED]
   favorites.js → favorites.js  _Bridges community 0 → community 1_
+- `campaignTitleOfTower()` --calls--> `rawText()`  [EXTRACTED]
+  favorites.js → favorites.js  _Bridges community 0 → community 3_
+- `renderCampaignPills()` --calls--> `rewardEntriesInTower()`  [EXTRACTED]
+  favorites.js → favorites.js  _Bridges community 0 → community 2_
 - `apply()` --calls--> `campaignByEnds()`  [EXTRACTED]
-  favorites.js → favorites.js  _Bridges community 5 → community 1_
-- `endsFromHeader()` --calls--> `rawText()`  [EXTRACTED]
-  favorites.js → favorites.js  _Bridges community 5 → community 3_
-- `apply()` --calls--> `gameIdFromImg()`  [EXTRACTED]
-  favorites.js → favorites.js  _Bridges community 1 → community 2_
+  favorites.js → favorites.js  _Bridges community 1 → community 5_
 
 ## Import Cycles
 - None detected.
