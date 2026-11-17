@@ -63,6 +63,7 @@ setInterval(ensurePlaying, 2000);
 // ============================================================
 const DROP_LABELS = /^(получить|получить сейчас|claim|claim now)$/i;
 const BONUS_LABEL = /^(получить бонус|забрать бонус|claim bonus|get bonus)$/i;
+const BONUS_ICON = '.claimable-bonus__icon';
 const BONUS_SELECTOR = [
     'button[aria-label="Получить бонус"]:not([disabled])',
     'button[aria-label="Забрать бонус"]:not([disabled])',
@@ -96,10 +97,15 @@ function recordBonus(channel) {
 }
 
 // Любой собранный бонус — и автоматический, и нажатый вручную — идёт в статистику.
+// Кроме подписи кнопки ловим саму иконку бонуса .claimable-bonus__icon:
+// Twitch не всегда вешает aria-label на кнопку вокруг неё.
 document.addEventListener('click', (event) => {
-    const el = event.target && event.target.closest ? event.target.closest('[aria-label]') : null;
-    if (!el) return;
-    if (!BONUS_LABEL.test(el.getAttribute('aria-label') || '')) return;
+    const target = event.target;
+    if (!target || !target.closest) return;
+    const labeled = target.closest('[aria-label]');
+    const icon = target.closest(BONUS_ICON);
+    const byLabel = labeled && BONUS_LABEL.test(labeled.getAttribute('aria-label') || '');
+    if (!byLabel && !icon) return;
     recordBonus(channelName());
 }, true);
 
@@ -128,8 +134,10 @@ function collectRewards() {
     // Кнопка "Получить бонус" / "Claim Bonus" (бонусы канала).
     // Кулдаун, чтобы один и тот же бонус не считался каждые 10 секунд.
     if (settings.autoBonus && Date.now() - lastBonusClick > 60000) {
-        const bonusButton = document.querySelector(BONUS_SELECTOR);
-        if (bonusButton) {
+        const icon = document.querySelector(BONUS_ICON);
+        const bonusButton = document.querySelector(BONUS_SELECTOR)
+            || (icon ? icon.closest('button, [role="button"]') : null);
+        if (bonusButton && !bonusButton.disabled) {
             lastBonusClick = Date.now();
             bonusButton.click();
             console.log('🎁 Twitch Keep Alive: нажата кнопка "Получить бонус" (бонусы канала)');
