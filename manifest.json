@@ -1,10 +1,14 @@
 {
   "manifest_version": 3,
   "name": "Twitch Keep Alive",
-  "version": "1.4",
+  "version": "1.5",
   "description": "Keeps Twitch tab active, favorites and drops progress locally.",
   "minimum_chrome_version": "111",
   "permissions": [ "activeTab", "storage" ],
+  "action": {
+    "default_title": "Twitch Keep Alive",
+    "default_popup": "popup.html"
+  },
   "content_scripts": [
     {
       "matches": [ "*://*.twitch.tv/*" ],
@@ -14,7 +18,7 @@
     },
     {
       "matches": [ "*://*.twitch.tv/*" ],
-      "js": [ "content.js" ],
+      "js": [ "settings.js", "content.js" ],
       "run_at": "document_start"
     },
     {

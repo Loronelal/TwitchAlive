@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Twitch Keep Alive</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    width: 320px;
+    margin: 0;
+    padding: 14px 14px 10px;
+    background: #18181b;
+    color: #efeff1;
+    font: 13px/1.4 system-ui, "Segoe UI", sans-serif;
+  }
+  .head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  h1 { margin: 0; font-size: 15px; }
+  .version { color: #adadb8; font-size: 11px; }
+  .option {
+    display: flex;
+    gap: 10px;
+    padding: 7px 0;
+    border-top: 1px solid #2f2f35;
+    cursor: pointer;
+  }
+  .option input { margin: 2px 0 0; accent-color: #9147ff; }
+  .option b { display: block; font-weight: 600; }
+  .option span { color: #adadb8; font-size: 11.5px; }
+  h2 {
+    margin: 14px 0 6px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #adadb8;
+  }
+  .summary { margin: 0 0 8px; }
+  .summary b { color: #00d59b; }
+  ul { list-style: none; margin: 0; padding: 0; max-height: 168px; overflow: auto; }
+  li {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 4px 0;
+    border-bottom: 1px solid #26262c;
+  }
+  li span:last-child { color: #adadb8; white-space: nowrap; }
+  .empty { color: #adadb8; padding: 6px 0; }
+  button {
+    margin-top: 10px;
+    width: 100%;
+    padding: 6px;
+    cursor: pointer;
+    background: #26262c;
+    color: #efeff1;
+    border: 1px solid #3a3a41;
+    border-radius: 4px;
+    font: inherit;
+  }
+  button:hover { background: #303036; }
+</style>
+</head>
+<body>
+  <div class="head">
+    <h1>Twitch Keep Alive</h1>
+    <span class="version" id="version"></span>
+  </div>
+
+  <div id="settings"></div>
+
+  <h2>Бонусы канала</h2>
+  <p class="summary" id="summary">Пока пусто</p>
+  <ul id="channels"></ul>
+  <button id="reset" type="button">Очистить статистику</button>
+
+  <script src="settings.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

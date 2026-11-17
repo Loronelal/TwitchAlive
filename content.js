@@ -1,22 +1,42 @@
 ﻿// ============================================================
 // Модуль «Twitch Keep Alive»: уведомления, авто-воспроизведение,
-// авто-клик «Получить» и статус стрима.
+// авто-клик «Получить», статус стрима и статистика бонусов канала.
+// Опции включаются в popup, значения хранятся в chrome.storage.local.
 //
 // Подмена видимости вкладки живёт в keepalive.js (MAIN-мир): из
 // изолированного мира content script'а страница её не видит.
 // ============================================================
 
 // ============================================================
-// 1. ЗАПРАШИВАЕМ РАЗРЕШЕНИЕ НА УВЕДОМЛЕНИЯ
+// 1. НАСТРОЙКИ ИЗ POPUP
 // ============================================================
-if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
-    Notification.requestPermission();
+let settings = { ...TAK_DEFAULTS };
+
+function applySettings(value) {
+    settings = { ...TAK_DEFAULTS, ...(value || {}) };
+    // keepalive.js живёт в MAIN-мире и не может читать chrome.storage
+    window.postMessage({ __takSettings: settings }, '*');
 }
+
+chrome.storage.local.get({ settings: TAK_DEFAULTS }, (data) => {
+    applySettings(data.settings);
+    if (settings.notifications &&
+        Notification.permission !== 'granted' &&
+        Notification.permission !== 'denied') {
+        Notification.requestPermission();
+    }
+});
+
+chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.settings) applySettings(changes.settings.newValue);
+});
 
 // ============================================================
 // 2. ПРИНУДИТЕЛЬНОЕ ВОССТАНОВЛЕНИЕ ВОСПРОИЗВЕДЕНИЯ
 // ============================================================
 function ensurePlaying() {
+    if (!settings.autoPlay) return;
+
     const videos = document.querySelectorAll('video');
     videos.forEach(video => {
         if (video.paused && !video.ended && window.location.hostname.includes('twitch.tv')) {
@@ -36,22 +56,46 @@ setInterval(ensurePlaying, 2000);
 // ============================================================
 // 3. АВТОМАТИЧЕСКОЕ НАЖАТИЕ НА КНОПКИ "ПОЛУЧИТЬ" И "ПОЛУЧИТЬ БОНУС"
 // ============================================================
+let lastBonusClick = 0;
+
+function channelName() {
+    return (window.location.pathname.split('/').filter(Boolean)[0] || 'unknown').toLowerCase();
+}
+
+function recordBonus(channel) {
+    chrome.storage.local.get({ bonusStats: { channels: {} } }, (data) => {
+        const stats = data.bonusStats && data.bonusStats.channels ? data.bonusStats : { channels: {} };
+        const row = stats.channels[channel] || { count: 0, last: 0 };
+        row.count += 1;
+        row.last = Date.now();
+        stats.channels[channel] = row;
+        chrome.storage.local.set({ bonusStats: stats });
+    });
+}
+
 function collectRewards() {
     // Кнопка с текстом "Получить" (для дропов)
-    const label = document.querySelector('[data-a-target="tw-core-button-label-text"]');
-    if (label && label.textContent.trim() === 'Получить') {
-        const button = label.closest('button, a');
-        if (button && !button.disabled) {
-            button.click();
-            console.log('🎁 Twitch Keep Alive: нажата кнопка "Получить" (дропы)');
+    if (settings.autoDrops) {
+        const label = document.querySelector('[data-a-target="tw-core-button-label-text"]');
+        if (label && label.textContent.trim() === 'Получить') {
+            const button = label.closest('button, a');
+            if (button && !button.disabled) {
+                button.click();
+                console.log('🎁 Twitch Keep Alive: нажата кнопка "Получить" (дропы)');
+            }
         }
     }
 
-    // Кнопка с aria-label="Получить бонус" (для бонусов канала)
-    const bonusButton = document.querySelector('button[aria-label="Получить бонус"]:not([disabled])');
-    if (bonusButton) {
-        bonusButton.click();
-        console.log('🎁 Twitch Keep Alive: нажата кнопка "Получить бонус" (бонусы канала)');
+    // Кнопка с aria-label="Получить бонус" (для бонусов канала).
+    // Кулдаун, чтобы один и тот же бонус не считался каждые 10 секунд.
+    if (settings.autoBonus && Date.now() - lastBonusClick > 60000) {
+        const bonusButton = document.querySelector('button[aria-label="Получить бонус"]:not([disabled])');
+        if (bonusButton) {
+            lastBonusClick = Date.now();
+            bonusButton.click();
+            recordBonus(channelName());
+            console.log('🎁 Twitch Keep Alive: нажата кнопка "Получить бонус" (бонусы канала)');
+        }
     }
 }
 setInterval(collectRewards, 10000);
@@ -64,6 +108,8 @@ let notifiedOffline = false;
 let lastGameTitle = ''; // храним предыдущее название игры
 
 function checkStreamStatus() {
+    if (!settings.notifications) return;
+
     // Не проверяем на страницах видео по запросу и клипов
     if (window.location.pathname.includes('/videos/') || window.location.pathname.includes('/clip/')) {
         return;
